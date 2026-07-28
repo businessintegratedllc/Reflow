@@ -53,6 +53,6 @@ export interface Subscriber {
   amount: number;
   currency: string;
   paypalOrderId: string;
-  status: 'active' | 'cancelled';
+  status: 'active' | 'cancelled' | 'blocked';
   date: string;
 }
