@@ -19,7 +19,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
             <a href="#features" className="hover:text-white transition-colors">Características</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">Cómo Funciona</a>
-            <Link href="/sofiatech" className="hover:text-white transition-colors">Ver Perfil Demo</Link>
+            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard Creador</Link>
           </div>
 
           <div className="flex items-center gap-4">
@@ -65,10 +65,10 @@ export default function LandingPage() {
               Empezar Gratis Ahora <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
-              href="/sofiatech"
+              href="/dashboard"
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-200 font-bold text-base hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
             >
-              Ver Ejemplo en Vivo (<span className="text-indigo-400">@sofiatech</span>)
+              Configurar Mi Perfil
             </Link>
           </div>
 
@@ -155,7 +155,6 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-6 text-sm text-slate-400">
-            <Link href="/sofiatech" className="hover:text-white transition-colors">Demo Perfil</Link>
             <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard Creador</Link>
             <ShieldCheck className="w-5 h-5 text-indigo-400" />
           </div>
