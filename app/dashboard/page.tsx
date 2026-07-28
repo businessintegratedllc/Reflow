@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Zap, User, BarChart3, Package, FileText, Settings, LogOut, 
-  ExternalLink, Plus, Trash2, Edit3, CheckCircle, RefreshCw, Smartphone, Share2, MessageSquare, ShieldAlert, CreditCard, Sparkles, Upload as UploadIcon
+  ExternalLink, Plus, Trash2, Edit3, CheckCircle, RefreshCw, Smartphone, Share2, MessageSquare, ShieldAlert, CreditCard, Sparkles, Upload as UploadIcon, Link2, Check, AlertCircle, X
 } from 'lucide-react';
 import { PAYPAL_CONFIG } from '@/lib/mockData';
 import { CreatorProfile, SocialStat, PricingPackage } from '@/types';
@@ -56,6 +56,11 @@ export default function DashboardPage() {
     }
     return [];
   });
+
+  // Modal state for linking external social accounts (Handle / Username prompt)
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkingPlatform, setLinkingPlatform] = useState<'instagram' | 'tiktok' | 'youtube' | 'twitch' | null>(null);
+  const [inputHandle, setInputHandle] = useState('');
 
   // Save changes and sync subscribers list for Admin Panel
   useEffect(() => {
@@ -129,19 +134,36 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSyncAPI = (platform: string) => {
-    setSyncing(platform);
+  // Open modal to link external account handle
+  const openLinkModal = (platform: 'instagram' | 'tiktok' | 'youtube' | 'twitch') => {
+    const current = stats.find(s => s.platform === platform);
+    setLinkingPlatform(platform);
+    setInputHandle(current?.handle && !current.handle.startsWith('@tu_') ? current.handle : '');
+    setShowLinkModal(true);
+  };
+
+  // Confirm external account link
+  const handleConfirmLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkingPlatform || !inputHandle) return;
+
+    const formattedHandle = inputHandle.startsWith('@') ? inputHandle : '@' + inputHandle;
+
+    setSyncing(linkingPlatform);
+    setShowLinkModal(false);
+
     setTimeout(() => {
       const updatedStats = stats.map(s => {
-        if (s.platform === platform) {
-          const isNowConnected = !s.connected;
+        if (s.platform === linkingPlatform) {
+          const isConnected = true;
           return {
             ...s,
-            followers: isNowConnected ? Math.floor(Math.random() * 35000) + 10000 : 0,
-            engagementRate: isNowConnected ? Number((Math.random() * 4 + 3.0).toFixed(1)) : 0.0,
-            avgReach: isNowConnected ? Math.floor(Math.random() * 20000) + 5000 : 0,
-            connected: isNowConnected,
-            lastSynced: isNowConnected ? 'Justo ahora' : 'Nunca'
+            handle: formattedHandle,
+            followers: Math.floor(Math.random() * 45000) + 12000,
+            engagementRate: Number((Math.random() * 4 + 3.2).toFixed(1)),
+            avgReach: Math.floor(Math.random() * 25000) + 7000,
+            connected: isConnected,
+            lastSynced: 'Justo ahora'
           };
         }
         return s;
@@ -149,9 +171,30 @@ export default function DashboardPage() {
       setStats(updatedStats);
       localStorage.setItem('reflow_stats', JSON.stringify(updatedStats));
       setSyncing(null);
-      setSuccessMsg(`¡API de ${platform.toUpperCase()} actualizada correctamente!`);
+      setSuccessMsg(`¡Cuenta de ${linkingPlatform.toUpperCase()} (${formattedHandle}) vinculada y sincronizada con éxito!`);
       setTimeout(() => setSuccessMsg(''), 4000);
     }, 1000);
+  };
+
+  // Disconnect account
+  const handleDisconnectAPI = (platform: string) => {
+    const updatedStats = stats.map(s => {
+      if (s.platform === platform) {
+        return {
+          ...s,
+          connected: false,
+          followers: 0,
+          engagementRate: 0.0,
+          avgReach: 0,
+          lastSynced: 'Desconectado'
+        };
+      }
+      return s;
+    });
+    setStats(updatedStats);
+    localStorage.setItem('reflow_stats', JSON.stringify(updatedStats));
+    setSuccessMsg(`Cuenta de ${platform.toUpperCase()} desconectada.`);
+    setTimeout(() => setSuccessMsg(''), 4000);
   };
 
   const handleAddPackage = (e: React.FormEvent) => {
@@ -307,7 +350,7 @@ export default function DashboardPage() {
             <div className="max-w-4xl space-y-8 animate-fadeIn">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-white">Perfil y Redes Sociales</h1>
-                <p className="text-slate-400 text-sm mt-1">Sube tu fotografía desde tu ordenador y configura tu identidad profesional.</p>
+                <p className="text-slate-400 text-sm mt-1">Sube tu fotografía desde tu ordenador, configura tu identidad y vincula tus cuentas externas.</p>
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
@@ -399,10 +442,10 @@ export default function DashboardPage() {
                 </form>
               </div>
 
-              {/* Social APIs Connection Section */}
+              {/* Social Accounts External Linking Section */}
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
-                <h2 className="text-xl font-bold text-white mb-2">Conexión de APIs de Redes Sociales</h2>
-                <p className="text-slate-400 text-sm mb-6">Conecta tus cuentas para mostrar estadísticas en vivo en tu perfil público.</p>
+                <h2 className="text-xl font-bold text-white mb-2">Vinculación de Cuentas Externas</h2>
+                <p className="text-slate-400 text-sm mb-6">Conecta tus redes sociales ingresando tu usuario o handle para activar las estadísticas en vivo en tu perfil.</p>
 
                 <div className="space-y-4">
                   {stats.map((item) => (
@@ -420,25 +463,29 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                         {item.connected ? (
                           <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                            <CheckCircle className="w-3.5 h-3.5" /> Conectado
+                            <CheckCircle className="w-3.5 h-3.5" /> Vinculado
                           </span>
                         ) : (
                           <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full">
-                            Sin conectar
+                            Sin vincular
                           </span>
                         )}
-                        <button
-                          onClick={() => handleSyncAPI(item.platform)}
-                          disabled={syncing === item.platform}
-                          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 ${
-                            item.connected 
-                              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' 
-                              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30'
-                          }`}
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${syncing === item.platform ? 'animate-spin' : ''}`} />
-                          {syncing === item.platform ? 'Procesando...' : (item.connected ? 'Desconectar' : 'Conectar API')}
-                        </button>
+
+                        {item.connected ? (
+                          <button
+                            onClick={() => handleDisconnectAPI(item.platform)}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                          >
+                            Desconectar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openLinkModal(item.platform as any)}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5"
+                          >
+                            <Link2 className="w-3.5 h-3.5" /> Vincular Cuenta
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -706,6 +753,56 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Link Account Modal */}
+        {showLinkModal && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl relative animate-fadeIn">
+              <button
+                onClick={() => setShowLinkModal(false)}
+                className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/80"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold uppercase">
+                  {linkingPlatform?.slice(0, 2)}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white capitalize">Vincular {linkingPlatform}</h3>
+                  <p className="text-xs text-slate-400">Ingresa tu usuario o handle de la red social.</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleConfirmLink} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Usuario / Handle</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                      <span className="text-sm">@</span>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={inputHandle}
+                      onChange={(e) => setInputHandle(e.target.value)}
+                      placeholder="tuusuario"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+                >
+                  <Link2 className="w-4 h-4" /> Vincular y Sincronizar
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Global Footer with required branding */}
         <footer className="mt-16 pt-8 border-t border-slate-900 text-center text-xs text-slate-500">
