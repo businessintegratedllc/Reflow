@@ -12,8 +12,8 @@ export async function GET(request: Request) {
     const clientId = process.env.INSTAGRAM_CLIENT_ID || '949086474863119';
     const redirectUri = `${baseUrl}/api/auth/callback?platform=instagram`;
     
-    // Using Meta Facebook Login for Business / Instagram Login endpoint
-    const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_basic,instagram_manage_insights,pages_show_list&response_type=code`;
+    // Using Meta Facebook Login for Business / Instagram Login endpoint (v25.0)
+    const authUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_basic,instagram_manage_insights,pages_show_list&response_type=code`;
     return NextResponse.redirect(authUrl);
   }
 
