@@ -18,8 +18,8 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
             <a href="#features" className="hover:text-white transition-colors">Características</a>
-            <a href="#how-it-works" className="hover:text-white transition-colors">Cómo Funciona</a>
-            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard Creador</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacidad</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Términos</Link>
           </div>
 
           <div className="flex items-center gap-4">
@@ -145,7 +145,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-900 py-12 bg-slate-950">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white">
               <Zap className="w-4 h-4" />
@@ -155,8 +155,13 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-6 text-sm text-slate-400">
-            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard Creador</Link>
-            <ShieldCheck className="w-5 h-5 text-indigo-400" />
+            <Link href="/privacy" className="hover:text-white transition-colors">Política de Privacidad</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Términos de Servicio</Link>
+            <Link href="/privacy/data-deletion" className="hover:text-white transition-colors">Eliminación de Datos</Link>
+          </div>
+
+          <div className="text-xs text-slate-500">
+            Diseñado por BI LABS - Costa Rica
           </div>
         </div>
       </footer>

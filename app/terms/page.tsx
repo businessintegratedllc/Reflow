@@ -3,8 +3,8 @@ import { Zap } from 'lucide-react';
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 py-12 px-6 sm:px-8">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <div className="min-h-screen bg-slate-950 text-slate-100 py-12 px-6 sm:px-8 flex flex-col justify-between">
+      <div className="max-w-3xl mx-auto space-y-8 w-full">
         <div className="flex items-center justify-between pb-6 border-b border-slate-800">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -62,6 +62,10 @@ export default function TermsPage() {
           </Link>
         </div>
       </div>
+
+      <footer className="mt-16 pt-8 border-t border-slate-900 text-center text-xs text-slate-500">
+        Diseñado por BI LABS - Costa Rica
+      </footer>
     </div>
   );
 }

@@ -40,7 +40,7 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row justify-between">
       {/* Admin Sidebar */}
       <aside className="w-full md:w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-6">
         <div>
@@ -81,9 +81,9 @@ export default function AdminDashboardPage() {
         </div>
       </aside>
 
-      {/* Main Admin Content */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto">
-        <div className="max-w-6xl space-y-8">
+      {/* Main Admin Content & Footer */}
+      <main className="flex-1 p-6 md:p-10 overflow-y-auto flex flex-col justify-between">
+        <div className="max-w-6xl space-y-8 w-full">
           {successMsg && (
             <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-3 shadow-lg">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
@@ -208,6 +208,11 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Global Footer */}
+        <footer className="mt-16 pt-8 border-t border-slate-900 text-center text-xs text-slate-500">
+          Diseñado por BI LABS - Costa Rica
+        </footer>
       </main>
     </div>
   );

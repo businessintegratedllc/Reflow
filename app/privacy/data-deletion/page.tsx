@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Zap, ShieldCheck, ArrowRight, Lock, CheckCircle2 } from 'lucide-react';
+import { Zap, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 export default function DataDeletionPage() {
   return (
@@ -12,7 +12,7 @@ export default function DataDeletionPage() {
           </div>
           <h1 className="text-3xl sm:text-4xl font-black text-white">Instrucciones de Eliminación de Datos</h1>
           <p className="text-slate-400 text-sm max-w-xl mx-auto">
-            En cumplimiento con las políticas de Meta Platform y privacidad de datos, te explicamos cómo puedes solicitar la eliminación completa de tu información y desconexión de cuentas en **ReFlow**.
+            En cumplimiento con las políticas de Meta Platform y privacidad de datos, te explicamos cómo puedes solicitar la eliminación completa de tu información y desconexión de cuentas en <strong>ReFlow</strong>.
           </p>
         </div>
 
@@ -25,7 +25,7 @@ export default function DataDeletionPage() {
               <div className="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center flex-shrink-0">1</div>
               <div>
                 <strong className="text-white block mb-1">Eliminación Directa desde la Plataforma:</strong>
-                Inicia sesión en tu panel de control en <Link href="/dashboard" className="text-indigo-400 hover:underline">ReFlow Dashboard</Link>, ve a la sección de configuración de perfil y haz clic en "Cerrar Cuenta" o elimina tus cuentas conectadas. Todos tus datos locales e historiales de estadísticas serán purgados al instante.
+                Inicia sesión en tu panel de control en <Link href="/dashboard" className="text-indigo-400 hover:underline">ReFlow Dashboard</Link> y elimina tu perfil o cuentas conectadas. Todos tus datos locales e historiales serán purgados al instante.
               </div>
             </div>
 
@@ -33,7 +33,7 @@ export default function DataDeletionPage() {
               <div className="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center flex-shrink-0">2</div>
               <div>
                 <strong className="text-white block mb-1">Solicitud por Correo Electrónico:</strong>
-                Envía un correo electrónico a <a href="mailto:soporte@reflow.me" className="text-indigo-400 underline">soporte@reflow.me</a> indicando en el asunto "Eliminación de Datos - ReFlow" junto con el correo electrónico asociado a tu cuenta de creador. Nuestro equipo procesará la solicitud en un plazo máximo de 48 horas hábiles.
+                Envía un correo electrónico a <a href="mailto:soporte@reflow.me" className="text-indigo-400 underline">soporte@reflow.me</a> indicando en el asunto "Eliminación de Datos - ReFlow". Nuestro equipo procesará la solicitud en un plazo máximo de 48 horas hábiles.
               </div>
             </div>
 
@@ -41,14 +41,14 @@ export default function DataDeletionPage() {
               <div className="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center flex-shrink-0">3</div>
               <div>
                 <strong className="text-white block mb-1">Revocar Permisos en Meta / Instagram:</strong>
-                Si deseas desvincular el acceso de ReFlow a tus datos de Instagram, puedes ir directamente a la configuración de tu cuenta de Facebook o Instagram en <a href="https://www.facebook.com/settings?tab=business_tools" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline">Configuración de Negocio / Integraciones de Negocio</a> y remover nuestra aplicación de tu lista de accesos autorizados.
+                Puedes ir directamente a la configuración de tu cuenta de Facebook o Instagram en <a href="https://www.facebook.com/settings?tab=business_tools" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline">Configuración de Negocio / Integraciones</a> y remover nuestra aplicación de tu lista de accesos autorizados.
               </div>
             </div>
           </div>
 
           <div className="pt-4 border-t border-slate-800 flex items-center gap-3 text-xs text-slate-400">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Una vez completada la solicitud, todos tus tokens de acceso, estadísticas e información de perfil se eliminan de manera permanente de nuestros servidores y base de datos en Supabase.</span>
+            <span>Una vez completada la solicitud, todos tus tokens de acceso, estadísticas e información de perfil se eliminan de manera permanente de nuestros servidores.</span>
           </div>
         </div>
 
@@ -59,8 +59,8 @@ export default function DataDeletionPage() {
         </div>
       </div>
 
-      <footer className="mt-16 text-center text-xs text-slate-600">
-        ReFlow Media Kit & Sales Hub • Cumplimiento con Normas de Privacidad de Datos.
+      <footer className="mt-16 pt-8 border-t border-slate-900 text-center text-xs text-slate-500">
+        Diseñado por BI LABS - Costa Rica
       </footer>
     </div>
   );
