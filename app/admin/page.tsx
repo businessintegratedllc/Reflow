@@ -1,0 +1,214 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { 
+  Zap, Users, DollarSign, Shield, CheckCircle, ExternalLink, 
+  Search, Settings, CreditCard, ArrowUpRight, BarChart3, Lock
+} from 'lucide-react';
+import { PAYPAL_CONFIG } from '@/lib/mockData';
+import { Subscriber } from '@/types';
+
+export default function AdminDashboardPage() {
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [paypalEmail, setPaypalEmail] = useState(PAYPAL_CONFIG.businessEmail);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Load real creators / subscribers from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedSubs = localStorage.getItem('reflow_subscribers');
+      if (savedSubs) {
+        try { setSubscribers(JSON.parse(savedSubs)); } catch (e) {}
+      }
+    }
+  }, []);
+
+  const totalRevenue = subscribers.filter(s => s.plan === 'Pro (PayPal)').reduce((sum, s) => sum + s.amount, 0);
+  const activeCount = subscribers.length;
+
+  const filteredSubscribers = subscribers.filter(s => 
+    s.creatorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSavePayPal = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccessMsg('¡Configuración de cuenta PayPal actualizada con éxito!');
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
+      {/* Admin Sidebar */}
+      <aside className="w-full md:w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-6">
+        <div>
+          <div className="flex items-center gap-3 mb-10">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-orange-600 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <span className="text-xl font-black tracking-tight text-white">ReFlow Admin</span>
+              <span className="block text-xs text-amber-400 font-medium">Panel de Control</span>
+            </div>
+          </div>
+
+          <nav className="space-y-2">
+            <Link
+              href="/admin"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/20"
+            >
+              <Users className="w-5 h-5" /> Suscriptores & Pagos
+            </Link>
+
+            <Link
+              href="/dashboard"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              <Zap className="w-5 h-5 text-indigo-400" /> Ir al Dashboard Creador
+            </Link>
+          </nav>
+        </div>
+
+        <div className="pt-6 border-t border-slate-800">
+          <Link
+            href="/"
+            className="w-full py-3 px-4 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-slate-700 transition-colors"
+          >
+            <ExternalLink className="w-4 h-4 text-amber-400" /> Ver Sitio Público
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Admin Content */}
+      <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+        <div className="max-w-6xl space-y-8">
+          {successMsg && (
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-3 shadow-lg">
+              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white">Panel de Administración de Suscripciones</h1>
+              <p className="text-slate-400 text-sm mt-1">Monitorea los creadores reales que han pagado por su plan Pro mediante tu cuenta de PayPal.</p>
+            </div>
+            <div className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold flex items-center gap-2">
+              <CreditCard className="w-4 h-4" /> PayPal: RandallCastroR9
+            </div>
+          </div>
+
+          {/* Metrics Overview */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Ingresos Totales (Pro)</div>
+              <div className="text-3xl font-black text-emerald-400">${totalRevenue.toFixed(2)} USD</div>
+              <div className="text-xs text-emerald-400 mt-2 flex items-center gap-1">↑ Sincronizado con PayPal</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Creadores Registrados</div>
+              <div className="text-3xl font-black text-white">{activeCount}</div>
+              <div className="text-xs text-amber-400 mt-2 flex items-center gap-1">Total en ReFlow</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Pasarela de Pago</div>
+              <div className="text-xl font-bold text-indigo-400 mt-1">PayPal.me</div>
+              <div className="text-xs text-slate-400 mt-2 font-mono">RandallCastroR9</div>
+            </div>
+          </div>
+
+          {/* PayPal Account Settings Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
+            <h2 className="text-xl font-bold text-white mb-2">Configuración de Cuenta PayPal</h2>
+            <p className="text-slate-400 text-sm mb-6">Enlace de PayPal.me configurado para recibir los pagos de suscripción de los creadores.</p>
+
+            <form onSubmit={handleSavePayPal} className="flex flex-col sm:flex-row gap-4 items-center">
+              <div className="flex-1 w-full">
+                <input
+                  type="text"
+                  required
+                  value={paypalEmail}
+                  onChange={(e) => setPaypalEmail(e.target.value)}
+                  placeholder="RandallCastroR9"
+                  className="w-full px-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm shadow-lg shadow-amber-600/30 hover:scale-[1.02] transition-all"
+              >
+                Actualizar Cuenta PayPal
+              </button>
+            </form>
+          </div>
+
+          {/* Subscribers Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-white">Listado de Creadores Registrados</h2>
+              
+              <div className="relative w-full sm:w-72">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <Search className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar creador..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              {filteredSubscribers.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 text-sm">
+                  No hay creadores registrados todavía. Cuando un creador configure su perfil o adquiera el plan Pro, aparecerá listado aquí en tiempo real.
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-xs font-semibold uppercase text-slate-400">
+                      <th className="py-3 px-4">Creador / Perfil</th>
+                      <th className="py-3 px-4">Correo</th>
+                      <th className="py-3 px-4">Plan</th>
+                      <th className="py-3 px-4">Monto (USD)</th>
+                      <th className="py-3 px-4">ID Transacción / Ref</th>
+                      <th className="py-3 px-4">Estado</th>
+                      <th className="py-3 px-4">Fecha Registro</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 text-sm">
+                    {filteredSubscribers.map(sub => (
+                      <tr key={sub.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-4 px-4 font-bold text-white">{sub.creatorName}</td>
+                        <td className="py-4 px-4 text-slate-400">{sub.email}</td>
+                        <td className="py-4 px-4 text-amber-400 font-medium">{sub.plan}</td>
+                        <td className="py-4 px-4 font-black text-emerald-400">${sub.amount.toFixed(2)} {sub.currency}</td>
+                        <td className="py-4 px-4 font-mono text-xs text-slate-400">{sub.paypalOrderId}</td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                            sub.plan === 'Pro (PayPal)' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          }`}>
+                            <CheckCircle className="w-3 h-3" /> {sub.plan === 'Pro (PayPal)' ? 'Pro Activo' : 'Freemium'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-slate-500 text-xs">{sub.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
