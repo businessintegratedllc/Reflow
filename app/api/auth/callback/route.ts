@@ -6,9 +6,8 @@ export async function GET(request: Request) {
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
 
-  const host = request.headers.get('host') || 'localhost:3000';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+  // Forzar siempre la URL de producción oficial en Netlify
+  const baseUrl = 'https://reflowcr.netlify.app';
   const redirectUri = `${baseUrl}/api/auth/callback?platform=${platform}`;
 
   if (error) {
@@ -25,10 +24,10 @@ export async function GET(request: Request) {
 
     // 1. Exchange Instagram / Meta Code for Token
     if (platform === 'instagram') {
-      const clientId = process.env.INSTAGRAM_CLIENT_ID || '949086474863119';
-      const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET || '1d44e135d1dc137f5e281679b43e415f';
+      const clientId = '949086474863119';
+      const clientSecret = '1d44e135d1dc137f5e281679b43e415f';
       
-      const tokenRes = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${clientSecret}&code=${code}`);
+      const tokenRes = await fetch(`https://graph.facebook.com/v25.0/oauth/access_token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${clientSecret}&code=${code}`);
       const tokenData = await tokenRes.json();
       
       if (tokenData.error) {

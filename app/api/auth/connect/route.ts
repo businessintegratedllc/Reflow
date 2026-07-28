@@ -3,13 +3,13 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const platform = url.searchParams.get('platform');
-  const host = request.headers.get('host') || 'localhost:3000';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+  
+  // Forzar siempre la URL de producción oficial en Netlify para evitar desajustes con dominios temporales
+  const baseUrl = 'https://reflowcr.netlify.app';
 
   // 1. Instagram / Meta Graph API OAuth
   if (platform === 'instagram') {
-    const clientId = process.env.INSTAGRAM_CLIENT_ID || '949086474863119';
+    const clientId = '949086474863119';
     const redirectUri = `${baseUrl}/api/auth/callback?platform=instagram`;
     
     // Using Meta Facebook Login for Business / Instagram Login endpoint (v25.0)
