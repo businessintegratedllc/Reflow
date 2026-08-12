@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Zap, CheckCircle, ExternalLink, MessageSquare, FileText, 
-  Share2, ShieldCheck, ArrowRight, X, Sparkles
+  Share2, ShieldCheck, ArrowRight, X, Sparkles, Globe
 } from 'lucide-react';
 import { PricingPackage, CreatorProfile, SocialStat } from '@/types';
 
@@ -83,6 +83,19 @@ export default function PublicProfilePage() {
     window.print();
   };
 
+  // Helper to generate correct social profile URL from handle and platform
+  const getSocialUrl = (platform: string, handle: string) => {
+    const cleanHandle = handle.replace('@', '').trim();
+    if (!cleanHandle || cleanHandle.startsWith('tu_')) return '#';
+    switch (platform) {
+      case 'instagram': return `https://instagram.com/${cleanHandle}`;
+      case 'tiktok': return `https://tiktok.com/@${cleanHandle}`;
+      case 'youtube': return `https://youtube.com/@${cleanHandle}`;
+      case 'twitch': return `https://twitch.tv/${cleanHandle}`;
+      default: return '#';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between py-12 px-4 sm:px-6 selection:bg-indigo-500 selection:text-white">
       <div className="w-full flex flex-col items-center">
@@ -121,6 +134,35 @@ export default function PublicProfilePage() {
             </div>
           </div>
 
+          {/* Social Network Links Bar */}
+          <div className="space-y-3 relative z-10">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Redes Sociales Oficiales</div>
+            <div className="flex flex-wrap gap-3">
+              {stats.map(s => {
+                const socialUrl = getSocialUrl(s.platform, s.handle);
+                const hasValidHandle = s.handle && !s.handle.startsWith('@tu_');
+                return (
+                  <a
+                    key={s.platform}
+                    href={hasValidHandle ? socialUrl : '#'}
+                    target={hasValidHandle ? "_blank" : "_self"}
+                    rel="noopener noreferrer"
+                    className={`px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${
+                      hasValidHandle 
+                        ? 'bg-slate-950 border-slate-800 text-white hover:border-indigo-500/50 hover:bg-indigo-950/20' 
+                        : 'bg-slate-950/50 border-slate-900 text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="capitalize">{s.platform}:</span>
+                    <span className="font-mono">{hasValidHandle ? s.handle : 'No vinculado'}</span>
+                    {hasValidHandle && <ExternalLink className="w-3 h-3 text-slate-400 ml-1" />}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Live Social Stats Grid */}
           <div className="space-y-3 relative z-10">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estadísticas Verificadas en Vivo</div>
@@ -133,7 +175,7 @@ export default function PublicProfilePage() {
                   </div>
                   <div>
                     <div className="text-xl font-black text-white">{s.connected ? s.followers.toLocaleString() : '---'}</div>
-                    <div className="text-xs text-indigo-400 mt-1">{s.connected ? `${s.engagementRate}% engagement` : 'Desconectado'}</div>
+                    <div className="text-xs text-indigo-400 mt-1">{s.connected ? `${s.engagementRate}% engagement` : 'Pendiente / No verificado'}</div>
                   </div>
                 </div>
               ))}
