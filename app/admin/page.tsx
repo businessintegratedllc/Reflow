@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Zap, Users, DollarSign, Shield, CheckCircle, ExternalLink, 
-  Search, Settings, CreditCard, Lock, Unlock, ArrowDownCircle, Trash2, KeyRound, AlertCircle
+  Search, Settings, CreditCard, Lock, Unlock, ArrowDownCircle, Trash2, KeyRound, AlertCircle, Edit, Check, Clock, X, BarChart3
 } from 'lucide-react';
 import { PAYPAL_CONFIG } from '@/lib/mockData';
-import { Subscriber } from '@/types';
+import { Subscriber, SocialStat } from '@/types';
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
@@ -20,7 +20,11 @@ export default function AdminLoginPage() {
   const [paypalEmail, setPaypalEmail] = useState(PAYPAL_CONFIG.businessEmail);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Admin password (default: admin123, customizable)
+  // Editing stats modal state
+  const [editingCreator, setEditingCreator] = useState<Subscriber | null>(null);
+  const [editStats, setEditStats] = useState<SocialStat[]>([]);
+
+  // Admin password (default: admin123)
   const ADMIN_PASS = 'admin123';
 
   useEffect(() => {
@@ -29,12 +33,18 @@ export default function AdminLoginPage() {
       if (auth === 'true') {
         setIsAuthenticated(true);
       }
+      loadSubscribers();
+    }
+  }, []);
+
+  const loadSubscribers = () => {
+    if (typeof window !== 'undefined') {
       const savedSubs = localStorage.getItem('reflow_subscribers');
       if (savedSubs) {
         try { setSubscribers(JSON.parse(savedSubs)); } catch (e) {}
       }
     }
-  }, []);
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +68,7 @@ export default function AdminLoginPage() {
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
-  // Downgrade creator to Free / Freemium
+  // Downgrade creator to Free
   const handleDowngrade = (id: string, name: string) => {
     if (confirm(`¿Estás seguro de bajar de nivel a ${name} al plan Gratuito (Freemium)?`)) {
       const updated = subscribers.map(s => {
@@ -69,7 +79,7 @@ export default function AdminLoginPage() {
       });
       setSubscribers(updated);
       localStorage.setItem('reflow_subscribers', JSON.stringify(updated));
-      setSuccessMsg(`¡El creador ${name} ha sido bajado al plan Gratuito con éxito!`);
+      setSuccessMsg(`¡El creador ${name} ha sido bajado al plan Gratuito!`);
       setTimeout(() => setSuccessMsg(''), 4000);
     }
   };
@@ -93,8 +103,45 @@ export default function AdminLoginPage() {
     }
   };
 
+  // Open Edit & Verify Stats Modal
+  const openEditStatsModal = (sub: Subscriber) => {
+    setEditingCreator(sub);
+    // If subscriber has stats, load them, otherwise default empty set
+    setEditStats(sub.stats || [
+      { platform: 'instagram', handle: '@instagram', followers: 10000, engagementRate: 4.5, avgReach: 5000, connected: false },
+      { platform: 'tiktok', handle: '@tiktok', followers: 20000, engagementRate: 6.0, avgReach: 10000, connected: false },
+      { platform: 'youtube', handle: '@youtube', followers: 5000, engagementRate: 5.0, avgReach: 3000, connected: false }
+    ]);
+  };
+
+  // Save Approved Stats
+  const handleSaveApprovedStats = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCreator) return;
+
+    // Mark stats as connected (verified by admin)
+    const verifiedStats = editStats.map(s => ({ ...s, connected: true, verificationStatus: 'verified' as const, lastSynced: 'Aprobado por Admin' }));
+
+    const updatedSubs = subscribers.map(s => {
+      if (s.id === editingCreator.id) {
+        return { ...s, stats: verifiedStats };
+      }
+      return s;
+    });
+
+    setSubscribers(updatedSubs);
+    localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
+
+    // Also sync to reflow_stats if it's the current user session
+    localStorage.setItem('reflow_stats', JSON.stringify(verifiedStats));
+
+    setEditingCreator(null);
+    setSuccessMsg(`¡Métricas verificadas y aprobadas para ${editingCreator.creatorName}! Ya son visibles en su perfil público.`);
+    setTimeout(() => setSuccessMsg(''), 4500);
+  };
+
   const totalRevenue = subscribers.filter(s => s.plan === 'Pro (PayPal)' && s.status === 'active').reduce((sum, s) => sum + s.amount, 0);
-  const activeCount = subscribers.filter(s => s.status === 'active').length;
+  const activeCount = subscribers.length;
 
   const filteredSubscribers = subscribers.filter(s => 
     s.creatorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -182,7 +229,7 @@ export default function AdminLoginPage() {
               href="/admin"
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/20"
             >
-              <Users className="w-5 h-5" /> Suscriptores & Gestión
+              <Users className="w-5 h-5" /> Suscriptores & Métricas
             </Link>
 
             <Link
@@ -222,8 +269,8 @@ export default function AdminLoginPage() {
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">Panel de Administración de Suscripciones</h1>
-              <p className="text-slate-400 text-sm mt-1">Gestiona creadores, baja de nivel planes no pagados y bloquea cuentas con total seguridad.</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-white">Panel de Administración de Creadores</h1>
+              <p className="text-slate-400 text-sm mt-1">Revisa y aprueba las métricas declaradas por los creadores, gestiona planes y bloquea cuentas.</p>
             </div>
             <div className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold flex items-center gap-2">
               <CreditCard className="w-4 h-4" /> PayPal: RandallCastroR9
@@ -276,10 +323,10 @@ export default function AdminLoginPage() {
             </form>
           </div>
 
-          {/* Subscribers Table with Actions */}
+          {/* Subscribers Table with Review & Verify Actions */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl space-y-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <h2 className="text-xl font-bold text-white">Listado y Control de Creadores</h2>
+              <h2 className="text-xl font-bold text-white">Listado y Verificación de Creadores</h2>
               
               <div className="relative w-full sm:w-72">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -298,7 +345,7 @@ export default function AdminLoginPage() {
             <div className="overflow-x-auto">
               {filteredSubscribers.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-sm">
-                  No hay creadores registrados todavía. Cuando un creador configure su perfil o adquiera el plan Pro, aparecerá listado aquí en tiempo real.
+                  No hay creadores registrados todavía. Cuando un creador se registre, aparecerá listado aquí.
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse">
@@ -330,7 +377,14 @@ export default function AdminLoginPage() {
                             {sub.status === 'blocked' ? 'Bloqueada' : 'Activa'}
                           </span>
                         </td>
-                        <td className="py-4 px-4 flex items-center justify-center gap-2">
+                        <td className="py-4 px-4 flex items-center justify-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => openEditStatsModal(sub)}
+                            title="Revisar y Aprobar Métricas"
+                            className="px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                          >
+                            <BarChart3 className="w-3.5 h-3.5" /> Revisar y Verificar Métricas
+                          </button>
                           {sub.plan === 'Pro (PayPal)' && (
                             <button
                               onClick={() => handleDowngrade(sub.id, sub.creatorName)}
@@ -361,6 +415,92 @@ export default function AdminLoginPage() {
             </div>
           </div>
         </div>
+
+        {/* Edit & Approve Stats Modal */}
+        {editingCreator && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => setEditingCreator(null)}
+                className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/80"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <BarChart3 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Verificar y Editar Métricas</h3>
+                  <p className="text-xs text-slate-400">Creador: <span className="text-indigo-400 font-semibold">{editingCreator.creatorName}</span></p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveApprovedStats} className="space-y-6">
+                <div className="space-y-4">
+                  {editStats.map((st, index) => (
+                    <div key={st.platform} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                      <div className="font-bold text-white capitalize text-sm flex items-center justify-between">
+                        <span>Plataforma: {st.platform}</span>
+                        <span className="text-xs text-indigo-400">{st.handle}</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Seguidores</label>
+                          <input
+                            type="number"
+                            value={st.followers}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setEditStats(prev => prev.map((item, i) => i === index ? { ...item, followers: val } : item));
+                            }}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Engagement (%)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={st.engagementRate}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setEditStats(prev => prev.map((item, i) => i === index ? { ...item, engagementRate: val } : item));
+                            }}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Alcance Promedio</label>
+                          <input
+                            type="number"
+                            value={st.avgReach}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setEditStats(prev => prev.map((item, i) => i === index ? { ...item, avgReach: val } : item));
+                            }}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" /> Aprobar y Publicar Métricas Verificadas
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Global Footer */}
         <footer className="mt-16 pt-8 border-t border-slate-900 text-center text-xs text-slate-500">

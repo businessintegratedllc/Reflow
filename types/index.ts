@@ -21,6 +21,7 @@ export interface SocialStat {
   avgReach: number;
   connected: boolean;
   lastSynced?: string;
+  verificationStatus?: 'pending' | 'verified' | 'rejected';
 }
 
 export interface PricingPackage {
@@ -55,4 +56,5 @@ export interface Subscriber {
   paypalOrderId: string;
   status: 'active' | 'cancelled' | 'blocked';
   date: string;
+  stats?: SocialStat[];
 }

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Zap, User, BarChart3, Package, FileText, Settings, LogOut, 
-  ExternalLink, Plus, Trash2, Edit3, CheckCircle, RefreshCw, Smartphone, Share2, MessageSquare, ShieldAlert, CreditCard, Sparkles, Upload as UploadIcon, Link2, Check, AlertCircle, X
+  ExternalLink, Plus, Trash2, Edit3, CheckCircle, RefreshCw, Smartphone, Share2, MessageSquare, ShieldAlert, CreditCard, Sparkles, Upload as UploadIcon, Link2, Check, AlertCircle, X, Clock
 } from 'lucide-react';
 import { PAYPAL_CONFIG } from '@/lib/mockData';
 import { CreatorProfile, SocialStat, PricingPackage } from '@/types';
@@ -41,9 +41,9 @@ export default function DashboardPage() {
       }
     }
     return [
-      { id: '1', platform: 'instagram', handle: '@tu_instagram', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Nunca' },
-      { id: '2', platform: 'tiktok', handle: '@tu_tiktok', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Nunca' },
-      { id: '3', platform: 'youtube', handle: '@tu_youtube', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Nunca' }
+      { id: '1', platform: 'instagram', handle: '@tu_instagram', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' },
+      { id: '2', platform: 'tiktok', handle: '@tu_tiktok', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' },
+      { id: '3', platform: 'youtube', handle: '@tu_youtube', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' }
     ];
   });
 
@@ -57,40 +57,13 @@ export default function DashboardPage() {
     return [];
   });
 
-  // Modal state for linking external social accounts (Handle / Username prompt)
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkingPlatform, setLinkingPlatform] = useState<'tiktok' | 'youtube' | 'twitch' | null>(null);
-  const [inputHandle, setInputHandle] = useState('');
-
-  // Check URL query params for OAuth success callback (e.g. ?connected=instagram&success=true)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const connectedPlatform = params.get('connected');
-      const isSuccess = params.get('success');
-
-      if (connectedPlatform && isSuccess === 'true') {
-        const updatedStats = stats.map(s => {
-          if (s.platform === connectedPlatform) {
-            return {
-              ...s,
-              handle: '@' + (creator.username || 'mi_cuenta'),
-              followers: Math.floor(Math.random() * 45000) + 12000,
-              engagementRate: Number((Math.random() * 4 + 3.2).toFixed(1)),
-              avgReach: Math.floor(Math.random() * 25000) + 7000,
-              connected: true,
-              lastSynced: 'Justo ahora'
-            };
-          }
-          return s;
-        });
-        setStats(updatedStats);
-        localStorage.setItem('reflow_stats', JSON.stringify(updatedStats));
-        setSuccessMsg(`¡Cuenta de ${connectedPlatform.toUpperCase()} vinculada exitosamente mediante OAuth oficial!`);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-  }, []);
+  // Modal state for submitting metrics to Admin
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [submittingPlatform, setSubmittingPlatform] = useState<string | null>(null);
+  const [formHandle, setFormHandle] = useState('');
+  const [formFollowers, setFormFollowers] = useState(10000);
+  const [formEngagement, setFormEngagement] = useState(4.5);
+  const [formReach, setFormReach] = useState(5000);
 
   // Save changes and sync subscribers list for Admin Panel
   useEffect(() => {
@@ -107,13 +80,14 @@ export default function DashboardPage() {
         currency: 'USD',
         paypalOrderId: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + Math.floor(Math.random() * 900000 + 100000) : 'FREE-TIER',
         status: 'active',
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        stats: stats
       };
 
       const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.id !== creator.id)];
       localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
     }
-  }, [creator]);
+  }, [creator, stats]);
 
   useEffect(() => {
     localStorage.setItem('reflow_stats', JSON.stringify(stats));
@@ -123,7 +97,6 @@ export default function DashboardPage() {
     localStorage.setItem('reflow_packages', JSON.stringify(packages));
   }, [packages]);
 
-  const [syncing, setSyncing] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
 
   // New package form state
@@ -144,7 +117,7 @@ export default function DashboardPage() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen es muy pesada. Por favor selecciona una menor a 2MB.');
+        alert('La imagen es muy pesada. Por favor selecciona una menor al 2MB.');
         return;
       }
       const reader = new FileReader();
@@ -164,72 +137,45 @@ export default function DashboardPage() {
     }
   };
 
-  // Handle platform connect click (Official OAuth for Instagram, Modal prompt for others)
-  const handleConnectPlatform = (platform: string) => {
-    if (platform === 'instagram') {
-      // Trigger official Meta OAuth 2.0 flow
-      window.location.href = `/api/auth/connect?platform=instagram`;
-    } else {
-      const current = stats.find(s => s.platform === platform);
-      setLinkingPlatform(platform as any);
-      setInputHandle(current?.handle && !current.handle.startsWith('@tu_') ? current.handle : '');
-      setShowLinkModal(true);
-    }
+  // Open modal to submit metrics
+  const openSubmitModal = (platform: string) => {
+    const current = stats.find(s => s.platform === platform);
+    setSubmittingPlatform(platform);
+    setFormHandle(current?.handle && !current.handle.startsWith('@tu_') ? current.handle : '');
+    setFormFollowers(current?.followers || 10000);
+    setFormEngagement(current?.engagementRate || 4.5);
+    setFormReach(current?.avgReach || 5000);
+    setShowSubmitModal(true);
   };
 
-  // Confirm external account link for non-Meta platforms
-  const handleConfirmLink = (e: React.FormEvent) => {
+  // Submit metrics for Admin approval
+  const handleSubmitMetrics = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!linkingPlatform || !inputHandle) return;
+    if (!submittingPlatform) return;
 
-    const formattedHandle = inputHandle.startsWith('@') ? inputHandle : '@' + inputHandle;
+    const formattedHandle = formHandle.startsWith('@') ? formHandle : '@' + formHandle;
 
-    setSyncing(linkingPlatform);
-    setShowLinkModal(false);
-
-    setTimeout(() => {
-      const updatedStats = stats.map(s => {
-        if (s.platform === linkingPlatform) {
-          const isConnected = true;
-          return {
-            ...s,
-            handle: formattedHandle,
-            followers: Math.floor(Math.random() * 45000) + 12000,
-            engagementRate: Number((Math.random() * 4 + 3.2).toFixed(1)),
-            avgReach: Math.floor(Math.random() * 25000) + 7000,
-            connected: isConnected,
-            lastSynced: 'Justo ahora'
-          };
-        }
-        return s;
-      });
-      setStats(updatedStats);
-      localStorage.setItem('reflow_stats', JSON.stringify(updatedStats));
-      setSyncing(null);
-      setSuccessMsg(`¡Cuenta de ${linkingPlatform.toUpperCase()} (${formattedHandle}) vinculada y sincronizada con éxito!`);
-      setTimeout(() => setSuccessMsg(''), 4000);
-    }, 1000);
-  };
-
-  // Disconnect account
-  const handleDisconnectAPI = (platform: string) => {
     const updatedStats = stats.map(s => {
-      if (s.platform === platform) {
+      if (s.platform === submittingPlatform) {
         return {
           ...s,
-          connected: false,
-          followers: 0,
-          engagementRate: 0.0,
-          avgReach: 0,
-          lastSynced: 'Desconectado'
+          handle: formattedHandle,
+          followers: Number(formFollowers),
+          engagementRate: Number(formEngagement),
+          avgReach: Number(formReach),
+          connected: false, // Not connected yet until Admin approves
+          verificationStatus: 'pending' as const,
+          lastSynced: 'En revisión por Admin'
         };
       }
       return s;
     });
+
     setStats(updatedStats);
     localStorage.setItem('reflow_stats', JSON.stringify(updatedStats));
-    setSuccessMsg(`Cuenta de ${platform.toUpperCase()} desconectada.`);
-    setTimeout(() => setSuccessMsg(''), 4000);
+    setShowSubmitModal(false);
+    setSuccessMsg(`¡Métricas de ${submittingPlatform.toUpperCase()} enviadas al Administrador para su aprobación!`);
+    setTimeout(() => setSuccessMsg(''), 4500);
   };
 
   const handleAddPackage = (e: React.FormEvent) => {
@@ -296,7 +242,7 @@ export default function DashboardPage() {
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <User className="w-5 h-5" /> Perfil y Redes
+              <User className="w-5 h-5" /> Perfil y Métricas
             </button>
 
             <button
@@ -307,7 +253,7 @@ export default function DashboardPage() {
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <BarChart3 className="w-5 h-5" /> Estadísticas en Vivo
+              <BarChart3 className="w-5 h-5" /> Estadísticas Verificadas
             </button>
 
             <button
@@ -380,12 +326,12 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Tab 1: Profile & Socials */}
+          {/* Tab 1: Profile & Metrics Submission */}
           {activeTab === 'profile' && (
             <div className="max-w-4xl space-y-8 animate-fadeIn">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-white">Perfil y Redes Sociales</h1>
-                <p className="text-slate-400 text-sm mt-1">Sube tu fotografía desde tu ordenador, configura tu identidad y conecta tus cuentas mediante OAuth oficial.</p>
+                <h1 className="text-2xl sm:text-3xl font-black text-white">Perfil y Envío de Métricas</h1>
+                <p className="text-slate-400 text-sm mt-1">Sube tu foto, configura tu perfil y declara tus analíticas para que el Administrador las verifique y apruebe.</p>
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
@@ -477,10 +423,10 @@ export default function DashboardPage() {
                 </form>
               </div>
 
-              {/* Social Accounts OAuth Connection Section */}
+              {/* Submit Metrics for Admin Approval Section */}
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
-                <h2 className="text-xl font-bold text-white mb-2">Conexión de Cuentas (OAuth Oficial)</h2>
-                <p className="text-slate-400 text-sm mb-6">Conecta tus cuentas reales mediante autenticación oficial para extraer estadísticas en vivo.</p>
+                <h2 className="text-xl font-bold text-white mb-2">Declaración de Redes Sociales</h2>
+                <p className="text-slate-400 text-sm mb-6">Ingresa tus métricas para que el Administrador las revise y apruebe en tu perfil público.</p>
 
                 <div className="space-y-4">
                   {stats.map((item) => (
@@ -491,36 +437,31 @@ export default function DashboardPage() {
                         </div>
                         <div>
                           <div className="font-bold text-white capitalize">{item.platform}</div>
-                          <div className="text-xs text-slate-400">{item.handle} • {item.connected ? `${item.followers.toLocaleString()} seguidores` : 'Desconectado'}</div>
+                          <div className="text-xs text-slate-400">{item.handle} • {item.connected ? `${item.followers.toLocaleString()} seguidores (Verificado)` : (item.verificationStatus === 'pending' ? 'Pendiente de aprobación' : 'Sin enviar')}</div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                         {item.connected ? (
                           <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                            <CheckCircle className="w-3.5 h-3.5" /> Conectado (OAuth)
+                            <CheckCircle className="w-3.5 h-3.5" /> Verificado por Admin
+                          </span>
+                        ) : item.verificationStatus === 'pending' ? (
+                          <span className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" /> En Revisión Admin
                           </span>
                         ) : (
                           <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full">
-                            Sin conectar
+                            Sin enviar
                           </span>
                         )}
 
-                        {item.connected ? (
-                          <button
-                            onClick={() => handleDisconnectAPI(item.platform)}
-                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
-                          >
-                            Desconectar
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleConnectPlatform(item.platform)}
-                            className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5"
-                          >
-                            <Link2 className="w-3.5 h-3.5" /> Conectar {item.platform === 'instagram' ? 'Meta OAuth' : 'Cuenta'}
-                          </button>
-                        )}
+                        <button
+                          onClick={() => openSubmitModal(item.platform)}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> {item.connected || item.verificationStatus === 'pending' ? 'Actualizar Métricas' : 'Declarar Métricas'}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -533,28 +474,28 @@ export default function DashboardPage() {
           {activeTab === 'stats' && (
             <div className="max-w-4xl space-y-8 animate-fadeIn">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-white">Estadísticas en Tiempo Real</h1>
-                <p className="text-slate-400 text-sm mt-1">Métricas consolidadas de tus cuentas conectadas.</p>
+                <h1 className="text-2xl sm:text-3xl font-black text-white">Estadísticas Verificadas</h1>
+                <p className="text-slate-400 text-sm mt-1">Métricas aprobadas y publicadas por el Administrador.</p>
               </div>
 
               {/* Overview cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Audiencia Total</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Audiencia Total Verificada</div>
                   <div className="text-3xl font-black text-white">{totalFollowers.toLocaleString()}</div>
-                  <div className="text-xs text-slate-500 mt-2">Suma de seguidores conectados</div>
+                  <div className="text-xs text-slate-500 mt-2">Aprobado por Admin</div>
                 </div>
 
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
                   <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Engagement Rate Promedio</div>
                   <div className="text-3xl font-black text-indigo-400">{avgEngagement}%</div>
-                  <div className="text-xs text-slate-500 mt-2">Tasa de interacción real</div>
+                  <div className="text-xs text-slate-500 mt-2">Tasa aprobada</div>
                 </div>
 
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
                   <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Alcance Mensual Promedio</div>
                   <div className="text-3xl font-black text-purple-400">{totalReach.toLocaleString()}</div>
-                  <div className="text-xs text-slate-500 mt-2">Impresiones estimadas</div>
+                  <div className="text-xs text-slate-500 mt-2">Impresiones aprobadas</div>
                 </div>
               </div>
 
@@ -567,7 +508,7 @@ export default function DashboardPage() {
                     <div key={s.platform} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
                       <div>
                         <div className="font-bold text-white capitalize">{s.platform}</div>
-                        <div className="text-xs text-slate-500">{s.handle} • {s.connected ? 'Activo' : 'Inactivo'}</div>
+                        <div className="text-xs text-slate-500">{s.handle} • {s.connected ? 'Verificado' : 'Pendiente'}</div>
                       </div>
                       <div>
                         <div className="text-xs text-slate-400">Seguidores</div>
@@ -789,12 +730,12 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Link Account Modal (For TikTok/YouTube/Twitch) */}
-        {showLinkModal && (
+        {/* Submit Metrics Modal */}
+        {showSubmitModal && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl relative animate-fadeIn">
               <button
-                onClick={() => setShowLinkModal(false)}
+                onClick={() => setShowSubmitModal(false)}
                 className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/80"
               >
                 <X className="w-5 h-5" />
@@ -802,37 +743,70 @@ export default function DashboardPage() {
 
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold uppercase">
-                  {linkingPlatform?.slice(0, 2)}
+                  {submittingPlatform?.slice(0, 2)}
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white capitalize">Vincular {linkingPlatform}</h3>
-                  <p className="text-xs text-slate-400">Ingresa tu usuario o handle de la red social.</p>
+                  <h3 className="text-xl font-bold text-white capitalize">Declarar Métricas ({submittingPlatform})</h3>
+                  <p className="text-xs text-slate-400">Envía tus datos para revisión del Administrador.</p>
                 </div>
               </div>
 
-              <form onSubmit={handleConfirmLink} className="space-y-4">
+              <form onSubmit={handleSubmitMetrics} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Usuario / Handle</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                      <span className="text-sm">@</span>
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={inputHandle}
-                      onChange={(e) => setInputHandle(e.target.value)}
-                      placeholder="tuusuario"
-                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Usuario / Handle</label>
+                  <input
+                    type="text"
+                    required
+                    value={formHandle}
+                    onChange={(e) => setFormHandle(e.target.value)}
+                    placeholder="@tuusuario"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Seguidores</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={formFollowers}
+                    onChange={(e) => setFormFollowers(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Engagement Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    required
+                    min="0"
+                    max="100"
+                    value={formEngagement}
+                    onChange={(e) => setFormEngagement(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Alcance Promedio (Impresiones)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={formReach}
+                    onChange={(e) => setFormReach(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 mt-2"
                 >
-                  <Link2 className="w-4 h-4" /> Vincular y Sincronizar
+                  <CheckCircle className="w-4 h-4" /> Enviar para Aprobación Admin
                 </button>
               </form>
             </div>
