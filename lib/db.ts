@@ -2,40 +2,44 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { CreatorProfile, SocialStat, PricingPackage, Subscriber } from '@/types';
 
 export async function saveCreatorData(userId: string, creator: CreatorProfile, stats: SocialStat[], packages: PricingPackage[]) {
+  const emailKey = (creator.email || creator.username + '@reflow.me').trim().toLowerCase();
+
   // 1. Save to localStorage
   if (typeof window !== 'undefined') {
     localStorage.setItem('reflow_creator', JSON.stringify(creator));
     localStorage.setItem('reflow_stats', JSON.stringify(stats));
     localStorage.setItem('reflow_packages', JSON.stringify(packages));
-    if (creator.email) {
-      localStorage.setItem('reflow_creator_email', creator.email);
-    }
+    localStorage.setItem('reflow_creator_email', emailKey);
 
     const existingSubs = JSON.parse(localStorage.getItem('reflow_subscribers') || '[]');
     const creatorSub = {
       id: userId,
       creatorName: `${creator.fullName} (@${creator.username})`,
-      email: creator.email || `${creator.username}@reflow.me`,
+      email: emailKey,
       plan: creator.plan || 'Free',
       amount: creator.plan === 'Pro (PayPal)' ? 15.00 : 0.00,
       currency: 'USD',
-      paypalOrderId: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + Math.floor(Math.random() * 900000 + 100000) : 'FREE-TIER',
+      paypalOrderId: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + userId : 'FREE-TIER-' + userId,
       status: 'active',
       date: new Date().toISOString().split('T')[0],
       stats: stats
     };
-    const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.id !== userId && s.email !== creatorSub.email)];
+    const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.email !== emailKey && s.id !== userId)];
     localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
   }
 
-  // 2. Save to Supabase (Cloud Sync by Email / ID)
+  // 2. Save to Supabase (Cloud Sync by Email)
   if (isSupabaseConfigured) {
     try {
+      // Upsert profile keyed by email or id
+      const { data: existingProfile } = await supabase.from('profiles').select('id').eq('email', emailKey).maybeSingle();
+      const dbId = existingProfile ? existingProfile.id : userId;
+
       await supabase.from('profiles').upsert({
-        id: userId,
+        id: dbId,
         username: creator.username.toLowerCase().replace(/[^a-z0-9_]/g, ''),
         full_name: creator.fullName,
-        email: creator.email || null,
+        email: emailKey,
         bio: creator.bio,
         avatar_url: creator.avatarUrl,
         niche: creator.niche,
@@ -43,11 +47,11 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
         plan: creator.plan || 'Free',
         subscription_status: creator.subscriptionStatus || 'free',
         updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      }, { onConflict: 'email' });
 
       for (const st of stats) {
         await supabase.from('social_stats').upsert({
-          user_id: userId,
+          user_id: dbId,
           platform: st.platform,
           handle: st.handle,
           followers: st.followers,
@@ -59,13 +63,13 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
       }
 
       await supabase.from('subscriptions').upsert({
-        creator_id: userId,
+        creator_id: dbId,
         creator_name: `${creator.fullName} (@${creator.username})`,
-        email: creator.email || `${creator.username}@reflow.me`,
+        email: emailKey,
         plan: creator.plan || 'Free',
         amount: creator.plan === 'Pro (PayPal)' ? 15.00 : 0.00,
         currency: 'USD',
-        paypal_order_id: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + userId : 'FREE-TIER-' + userId,
+        paypal_order_id: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + dbId : 'FREE-TIER-' + dbId,
         status: 'active'
       }, { onConflict: 'paypal_order_id' });
 
@@ -76,30 +80,30 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
 }
 
 export async function loadCreatorData(emailOrUsername?: string) {
-  let lookupEmail = emailOrUsername;
-  let lookupUsername = emailOrUsername;
+  let lookupKey = emailOrUsername;
 
   if (typeof window !== 'undefined' && !emailOrUsername) {
-    lookupEmail = localStorage.getItem('reflow_creator_email') || undefined;
-    const localCreator = localStorage.getItem('reflow_creator');
-    if (localCreator) {
-      try {
-        const parsed = JSON.parse(localCreator);
-        if (parsed.email) lookupEmail = parsed.email;
-        if (parsed.username) lookupUsername = parsed.username;
-      } catch (e) {}
+    lookupKey = localStorage.getItem('reflow_creator_email') || undefined;
+    if (!lookupKey) {
+      const localCreator = localStorage.getItem('reflow_creator');
+      if (localCreator) {
+        try {
+          const parsed = JSON.parse(localCreator);
+          if (parsed.email) lookupKey = parsed.email;
+          else if (parsed.username) lookupKey = parsed.username;
+        } catch (e) {}
+      }
     }
   }
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && lookupKey) {
     try {
+      const isEmail = lookupKey.includes('@');
       let query = supabase.from('profiles').select('*');
-      if (lookupEmail) {
-        query = query.eq('email', lookupEmail.trim().toLowerCase());
-      } else if (lookupUsername) {
-        query = query.eq('username', lookupUsername.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+      if (isEmail) {
+        query = query.eq('email', lookupKey.trim().toLowerCase());
       } else {
-        query = query.order('created_at', { ascending: false }).limit(1);
+        query = query.eq('username', lookupKey.toLowerCase().replace(/[^a-z0-9_]/g, ''));
       }
       const { data: profileData, error } = await query.maybeSingle();
 
@@ -145,7 +149,7 @@ export async function loadCreatorData(emailOrUsername?: string) {
           active: p.active
         })) : [];
 
-        // Cache locally for this device
+        // Cache locally
         if (typeof window !== 'undefined') {
           localStorage.setItem('reflow_creator', JSON.stringify(creator));
           localStorage.setItem('reflow_stats', JSON.stringify(stats));

@@ -1,10 +1,10 @@
--- ReFlow Database Schema for Supabase (Updated with Email cross-device sync)
+-- ReFlow Database Schema for Supabase (Robust Email-based Sync)
 
 CREATE TABLE IF NOT EXISTS public.profiles (
     id VARCHAR(100) PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
+    username VARCHAR(50) NOT NULL,
     full_name VARCHAR(100) NOT NULL,
-    email VARCHAR(100),
+    email VARCHAR(100) UNIQUE NOT NULL,
     bio TEXT,
     avatar_url TEXT,
     niche VARCHAR(50) DEFAULT 'Tecnología & Lifestyle',
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
 );
 
--- Row Level Security (RLS) & Open Public Access for seamless multi-device sync
+-- Row Level Security (RLS) & Open Public Access
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.social_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.packages ENABLE ROW LEVEL SECURITY;
