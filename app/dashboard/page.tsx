@@ -34,6 +34,10 @@ export default function DashboardPage() {
 
   const [packages, setPackages] = useState<PricingPackage[]>([]);
 
+  // Sync state for cross-device loading by username
+  const [syncUsername, setSyncUsername] = useState('');
+  const [syncLoading, setSyncLoading] = useState(false);
+
   // Load from DB/localStorage on mount
   useEffect(() => {
     loadCreatorData().then((res) => {
@@ -69,8 +73,26 @@ export default function DashboardPage() {
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
     saveCreatorData(creator.id, creator, stats, packages);
-    setSuccessMsg('¡Perfil y foto guardados y sincronizados exitosamente!');
+    setSuccessMsg('¡Perfil y foto guardados y sincronizados en la nube exitosamente!');
     setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
+  // Cross-device sync by username
+  const handleDeviceSync = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!syncUsername) return;
+    setSyncLoading(true);
+    const res = await loadCreatorData(syncUsername);
+    setSyncLoading(false);
+    if (res && res.creator) {
+      setCreator(res.creator);
+      if (res.stats) setStats(res.stats as any);
+      if (res.packages) setPackages(res.packages);
+      setSuccessMsg(`¡Dispositivo sincronizado con éxito para @${res.creator.username}!`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } else {
+      alert(`No se encontró ningún perfil con el usuario "@${syncUsername}". Asegúrate de haberlo guardado previamente.`);
+    }
   };
 
   // Handle local computer image upload via FileReader (Base64)
@@ -290,7 +312,39 @@ export default function DashboardPage() {
             <div className="max-w-4xl space-y-8 animate-fadeIn">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-white">Perfil y Envío de Métricas</h1>
-                <p className="text-slate-400 text-sm mt-1">Sube tu foto desde el celular u ordenador, configura tu perfil y declara tus analíticas para que el Administrador las verifique.</p>
+                <p className="text-slate-400 text-sm mt-1">Sube tu foto, configura tu perfil y declara tus analíticas para que el Administrador las verifique y apruebe.</p>
+              </div>
+
+              {/* Cross-Device Cloud Sync Card */}
+              <div className="bg-gradient-to-r from-indigo-950/60 to-purple-950/60 border border-indigo-500/30 rounded-3xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/30 flex items-center justify-center text-indigo-400">
+                    <RefreshCw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white">¿Abriste tu cuenta en otro dispositivo (Teléfono / Computadora)?</h2>
+                    <p className="text-xs text-slate-300">Sincroniza tu información al instante ingresando tu Nombre de Usuario (ej. <code className="text-indigo-300">tuusuario</code>).</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleDeviceSync} className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    required
+                    value={syncUsername}
+                    onChange={(e) => setSyncUsername(e.target.value)}
+                    placeholder="Tu nombre de usuario (ej. sofiatech)"
+                    className="flex-1 px-4 py-2.5 bg-slate-950 border border-indigo-500/40 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={syncLoading}
+                    className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
+                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Dispositivo'}
+                  </button>
+                </form>
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">

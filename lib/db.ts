@@ -1,16 +1,13 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { CreatorProfile, SocialStat, PricingPackage, Subscriber } from '@/types';
 
-// DB Service for ReFlow (Supabase + LocalStorage hybrid sync)
-
 export async function saveCreatorData(userId: string, creator: CreatorProfile, stats: SocialStat[], packages: PricingPackage[]) {
-  // 1. Save to localStorage always for instant UI responsiveness
+  // 1. Save to localStorage
   if (typeof window !== 'undefined') {
     localStorage.setItem('reflow_creator', JSON.stringify(creator));
     localStorage.setItem('reflow_stats', JSON.stringify(stats));
     localStorage.setItem('reflow_packages', JSON.stringify(packages));
 
-    // Update subscribers list in localStorage
     const existingSubs = JSON.parse(localStorage.getItem('reflow_subscribers') || '[]');
     const creatorSub = {
       id: userId,
@@ -28,13 +25,12 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
     localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
   }
 
-  // 2. Save to Supabase if configured so it syncs across phone and computer!
+  // 2. Save to Supabase (Cloud Sync)
   if (isSupabaseConfigured) {
     try {
-      // Upsert profile
       await supabase.from('profiles').upsert({
         id: userId,
-        username: creator.username,
+        username: creator.username.toLowerCase().replace(/[^a-z0-9_]/g, ''),
         full_name: creator.fullName,
         bio: creator.bio,
         avatar_url: creator.avatarUrl,
@@ -43,9 +39,8 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
         plan: creator.plan || 'Free',
         subscription_status: creator.subscriptionStatus || 'free',
         updated_at: new Date().toISOString()
-      });
+      }, { onConflict: 'id' });
 
-      // Upsert stats
       for (const st of stats) {
         await supabase.from('social_stats').upsert({
           user_id: userId,
@@ -59,7 +54,6 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
         }, { onConflict: 'user_id,platform' });
       }
 
-      // Upsert subscription record for Admin panel
       await supabase.from('subscriptions').upsert({
         creator_id: userId,
         creator_name: `${creator.fullName} (@${creator.username})`,
@@ -67,30 +61,28 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
         plan: creator.plan || 'Free',
         amount: creator.plan === 'Pro (PayPal)' ? 15.00 : 0.00,
         currency: 'USD',
-        paypal_order_id: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + userId : 'FREE-TIER',
+        paypal_order_id: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + userId : 'FREE-TIER-' + userId,
         status: 'active'
       }, { onConflict: 'paypal_order_id' });
 
     } catch (err) {
-      console.error('Supabase Sync Error (falling back to local):', err);
+      console.error('Supabase Sync Error:', err);
     }
   }
 }
 
 export async function loadCreatorData(username?: string) {
-  // Try Supabase first if configured
   if (isSupabaseConfigured) {
     try {
       let query = supabase.from('profiles').select('*');
       if (username) {
-        query = query.eq('username', username);
+        query = query.eq('username', username.toLowerCase().replace(/[^a-z0-9_]/g, ''));
       } else {
-        query = query.limit(1);
+        query = query.order('created_at', { ascending: false }).limit(1);
       }
-      const { data: profileData, error } = await query.single();
+      const { data: profileData, error } = await query.maybeSingle();
 
       if (!error && profileData) {
-        // Fetch stats
         const { data: statsData } = await supabase.from('social_stats').select('*').eq('user_id', profileData.id);
         const { data: pkgData } = await supabase.from('packages').select('*').eq('user_id', profileData.id);
 
@@ -130,6 +122,13 @@ export async function loadCreatorData(username?: string) {
           deliveryDays: p.delivery_days,
           active: p.active
         })) : [];
+
+        // Cache locally for this device
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('reflow_creator', JSON.stringify(creator));
+          localStorage.setItem('reflow_stats', JSON.stringify(stats));
+          localStorage.setItem('reflow_packages', JSON.stringify(packages));
+        }
 
         return { creator, stats, packages };
       }
@@ -176,7 +175,6 @@ export async function loadAllSubscribersFromDB() {
     }
   }
 
-  // Fallback to localStorage
   if (typeof window !== 'undefined') {
     const savedSubs = localStorage.getItem('reflow_subscribers');
     if (savedSubs) {
