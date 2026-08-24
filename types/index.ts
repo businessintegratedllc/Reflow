@@ -2,6 +2,7 @@ export interface CreatorProfile {
   id: string;
   username: string;
   fullName: string;
+  email?: string;
   bio: string;
   avatarUrl: string;
   niche: string;

@@ -1,9 +1,10 @@
--- ReFlow Database Schema for Supabase (Updated for seamless cross-device sync)
+-- ReFlow Database Schema for Supabase (Updated with Email cross-device sync)
 
 CREATE TABLE IF NOT EXISTS public.profiles (
     id VARCHAR(100) PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
     bio TEXT,
     avatar_url TEXT,
     niche VARCHAR(50) DEFAULT 'Tecnología & Lifestyle',
@@ -52,13 +53,12 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
 );
 
--- Row Level Security (RLS) & Open Public Access for seamless cross-device creator onboarding
+-- Row Level Security (RLS) & Open Public Access for seamless multi-device sync
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.social_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Allow public read/write so creators can sync across phone and computer instantly without strict auth walls
 CREATE POLICY "Allow public access to profiles" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public access to social_stats" ON public.social_stats FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public access to packages" ON public.packages FOR ALL USING (true) WITH CHECK (true);

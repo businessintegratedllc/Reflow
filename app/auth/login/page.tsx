@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Zap, ArrowRight, Lock, Mail, Sparkles } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { loadCreatorData, saveCreatorData } from "@/lib/db";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +18,10 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('reflow_creator_email', email.trim().toLowerCase());
+    }
 
     if (!isSupabaseConfigured) {
       router.push('/dashboard');
@@ -34,16 +39,15 @@ export default function LoginPage() {
         router.push('/dashboard');
         return;
       }
+
+      // Load existing creator profile tied to this email from cloud
+      await loadCreatorData(email);
       router.push('/dashboard');
     } catch (err: any) {
       router.push('/dashboard');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    router.push('/dashboard');
   };
 
   return (

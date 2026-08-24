@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Zap, ArrowRight, Lock, Mail, User, Sparkles } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { saveCreatorData } from "@/lib/db";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,45 +21,52 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
 
-    // If Supabase is not configured or throws an API key issue, allow seamless entry to dashboard for testing
+    const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('reflow_creator_email', cleanEmail);
+    }
+
+    // Initialize new creator profile tied to this email
+    const newCreator = {
+      id: 'user-' + Date.now(),
+      username: cleanUsername || 'tuusuario',
+      fullName: fullName || 'Tu Nombre',
+      email: cleanEmail,
+      bio: 'Creador de contenido digital. Conecto marcas con audiencias auténticas.',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      niche: 'Tecnología & Lifestyle',
+      whatsappNumber: '+50600000000',
+      plan: 'Free' as const,
+      subscriptionStatus: 'free' as const
+    };
+
+    const initialStats = [
+      { id: '1', platform: 'instagram' as const, handle: '@' + (cleanUsername || 'instagram'), followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' as const },
+      { id: '2', platform: 'tiktok' as const, handle: '@' + (cleanUsername || 'tiktok'), followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' as const },
+      { id: '3', platform: 'youtube' as const, handle: '@' + (cleanUsername || 'youtube'), followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' as const }
+    ];
+
+    await saveCreatorData(newCreator.id, newCreator, initialStats, []);
+
     if (!isSupabaseConfigured) {
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 600);
+      router.push('/dashboard');
       return;
     }
 
     try {
       const { data, error: authError } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
       });
 
       if (authError) {
-        // Fallback demo mode if Supabase credentials fail or aren't active in client
         console.warn('Auth notice:', authError.message);
-        router.push('/dashboard');
-        return;
-      }
-
-      if (data.user) {
-        await supabase.from('profiles').insert([
-          {
-            id: data.user.id,
-            username: username.toLowerCase().replace(/[^a-z0-9_]/g, ''),
-            full_name: fullName,
-            bio: 'Creador en ReFlow',
-            whatsapp_number: '+50600000000',
-            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-            plan: 'Free',
-            subscription_status: 'free'
-          }
-        ]);
       }
 
       router.push('/dashboard');
     } catch (err: any) {
-      // Graceful fallback to dashboard so user is never blocked by API key errors
       router.push('/dashboard');
     } finally {
       setLoading(false);
