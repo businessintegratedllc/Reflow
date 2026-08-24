@@ -2,38 +2,42 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { CreatorProfile, SocialStat, PricingPackage, Subscriber } from '@/types';
 
 export async function saveCreatorData(userId: string, creator: CreatorProfile, stats: SocialStat[], packages: PricingPackage[]) {
+  if (!creator || !creator.username || creator.username === 'tuusuario') return;
+
   const emailKey = (creator.email || creator.username + '@reflow.me').trim().toLowerCase();
+  const cleanId = userId || creator.id || 'user-' + emailKey.replace(/[^a-z0-9]/g, '');
 
   // 1. Save to localStorage
   if (typeof window !== 'undefined') {
-    localStorage.setItem('reflow_creator', JSON.stringify(creator));
+    const creatorToSave = { ...creator, id: cleanId, email: emailKey };
+    localStorage.setItem('reflow_creator', JSON.stringify(creatorToSave));
     localStorage.setItem('reflow_stats', JSON.stringify(stats));
     localStorage.setItem('reflow_packages', JSON.stringify(packages));
     localStorage.setItem('reflow_creator_email', emailKey);
 
     const existingSubs = JSON.parse(localStorage.getItem('reflow_subscribers') || '[]');
     const creatorSub = {
-      id: userId,
+      id: cleanId,
       creatorName: `${creator.fullName} (@${creator.username})`,
       email: emailKey,
       plan: creator.plan || 'Free',
       amount: creator.plan === 'Pro (PayPal)' ? 15.00 : 0.00,
       currency: 'USD',
-      paypalOrderId: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + userId : 'FREE-TIER-' + userId,
+      paypalOrderId: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + cleanId : 'FREE-TIER-' + cleanId,
       status: 'active',
       date: new Date().toISOString().split('T')[0],
       stats: stats
     };
-    const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.email !== emailKey && s.id !== userId)];
+    const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.email !== emailKey && s.id !== cleanId)];
     localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
   }
 
   // 2. Save to Supabase (Cloud Sync by Email)
   if (isSupabaseConfigured) {
     try {
-      // Upsert profile keyed by email or id
+      // Check if profile exists by email
       const { data: existingProfile } = await supabase.from('profiles').select('id').eq('email', emailKey).maybeSingle();
-      const dbId = existingProfile ? existingProfile.id : userId;
+      const dbId = existingProfile ? existingProfile.id : cleanId;
 
       await supabase.from('profiles').upsert({
         id: dbId,
@@ -94,6 +98,16 @@ export async function loadCreatorData(emailOrUsername?: string) {
         } catch (e) {}
       }
     }
+  }
+
+  // Also check Supabase Auth session if available
+  if (isSupabaseConfigured && !lookupKey) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        lookupKey = session.user.email;
+      }
+    } catch (e) {}
   }
 
   if (isSupabaseConfigured && lookupKey) {
@@ -170,11 +184,13 @@ export async function loadCreatorData(emailOrUsername?: string) {
     const savedStats = localStorage.getItem('reflow_stats');
     const savedPackages = localStorage.getItem('reflow_packages');
 
-    return {
-      creator: savedCreator ? JSON.parse(savedCreator) : null,
-      stats: savedStats ? JSON.parse(savedStats) : null,
-      packages: savedPackages ? JSON.parse(savedPackages) : null
-    };
+    if (savedCreator) {
+      return {
+        creator: JSON.parse(savedCreator),
+        stats: savedStats ? JSON.parse(savedStats) : null,
+        packages: savedPackages ? JSON.parse(savedPackages) : null
+      };
+    }
   }
 
   return { creator: null, stats: null, packages: null };

@@ -12,12 +12,14 @@ import { saveCreatorData, loadCreatorData } from '@/lib/db';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'packages' | 'mediakit' | 'subscription'>('profile');
+  const [loadingData, setLoadingData] = useState(true);
   
   // Clean zero-mock initial state for brand new creators
   const [creator, setCreator] = useState<CreatorProfile>({
     id: 'user-' + Date.now(),
     username: 'tuusuario',
     fullName: 'Tu Nombre',
+    email: '',
     bio: 'Cuéntale a las marcas sobre tu nicho, tu comunidad y tu experiencia en colaboraciones.',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
     niche: 'Tecnología & Lifestyle',
@@ -34,16 +36,20 @@ export default function DashboardPage() {
 
   const [packages, setPackages] = useState<PricingPackage[]>([]);
 
-  // Sync state for cross-device loading by username
-  const [syncUsername, setSyncUsername] = useState('');
+  // Sync state for cross-device loading by email
+  const [syncEmail, setSyncEmail] = useState('');
   const [syncLoading, setSyncLoading] = useState(false);
 
   // Load from DB/localStorage on mount
   useEffect(() => {
     loadCreatorData().then((res) => {
-      if (res.creator) setCreator(res.creator);
-      if (res.stats && res.stats.length > 0) setStats(res.stats as any);
-      if (res.packages && res.packages.length > 0) setPackages(res.packages);
+      if (res && res.creator) {
+        setCreator(res.creator);
+        if (res.creator.email) setSyncEmail(res.creator.email);
+      }
+      if (res && res.stats && res.stats.length > 0) setStats(res.stats as any);
+      if (res && res.packages && res.packages.length > 0) setPackages(res.packages);
+      setLoadingData(false);
     });
   }, []);
 
@@ -55,12 +61,12 @@ export default function DashboardPage() {
   const [formEngagement, setFormEngagement] = useState(4.5);
   const [formReach, setFormReach] = useState(5000);
 
-  // Save changes and sync to Supabase & localStorage instantly on state update
+  // Save changes and sync to Supabase & localStorage instantly on state update (only after initial load)
   useEffect(() => {
-    if (creator && stats) {
+    if (!loadingData && creator && stats && creator.username && creator.username !== 'tuusuario') {
       saveCreatorData(creator.id, creator, stats, packages);
     }
-  }, [creator, stats, packages]);
+  }, [creator, stats, packages, loadingData]);
 
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -77,21 +83,21 @@ export default function DashboardPage() {
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
-  // Cross-device sync by username
+  // Cross-device sync by email
   const handleDeviceSync = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!syncUsername) return;
+    if (!syncEmail) return;
     setSyncLoading(true);
-    const res = await loadCreatorData(syncUsername);
+    const res = await loadCreatorData(syncEmail);
     setSyncLoading(false);
     if (res && res.creator) {
       setCreator(res.creator);
       if (res.stats) setStats(res.stats as any);
       if (res.packages) setPackages(res.packages);
-      setSuccessMsg(`¡Dispositivo sincronizado con éxito para @${res.creator.username}!`);
+      setSuccessMsg(`¡Dispositivo sincronizado con éxito para el correo ${res.creator.email || syncEmail}!`);
       setTimeout(() => setSuccessMsg(''), 4000);
     } else {
-      alert(`No se encontró ningún perfil con el usuario "@${syncUsername}". Asegúrate de haberlo guardado previamente.`);
+      alert(`No se encontró ningún perfil con el correo "${syncEmail}". Asegúrate de haber iniciado sesión previamente.`);
     }
   };
 
@@ -323,17 +329,17 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-white">¿Abriste tu cuenta en otro dispositivo (Teléfono / Computadora)?</h2>
-                    <p className="text-xs text-slate-300">Sincroniza tu información al instante ingresando tu Nombre de Usuario (ej. <code className="text-indigo-300">tuusuario</code>).</p>
+                    <p className="text-xs text-slate-300">Sincroniza tu información al instante ingresando tu Correo Electrónico con el que iniciaste sesión.</p>
                   </div>
                 </div>
 
                 <form onSubmit={handleDeviceSync} className="flex flex-col sm:flex-row gap-3">
                   <input
-                    type="text"
+                    type="email"
                     required
-                    value={syncUsername}
-                    onChange={(e) => setSyncUsername(e.target.value)}
-                    placeholder="Tu nombre de usuario (ej. sofiatech)"
+                    value={syncEmail}
+                    onChange={(e) => setSyncEmail(e.target.value)}
+                    placeholder="Tu correo electrónico (ej. tu@correo.com)"
                     className="flex-1 px-4 py-2.5 bg-slate-950 border border-indigo-500/40 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-400"
                   />
                   <button
@@ -342,7 +348,7 @@ export default function DashboardPage() {
                     className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
-                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Dispositivo'}
+                    {syncLoading ? 'Sincronizando...' : 'Sincronizar por Correo'}
                   </button>
                 </form>
               </div>
@@ -395,11 +401,12 @@ export default function DashboardPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Nicho / Categoría</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Correo Electrónico (Llave de Sincronización)</label>
                       <input
-                        type="text"
-                        value={creator.niche}
-                        onChange={(e) => setCreator({...creator, niche: e.target.value})}
+                        type="email"
+                        value={creator.email || ''}
+                        onChange={(e) => setCreator({...creator, email: e.target.value})}
+                        placeholder="tu@correo.com"
                         className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
                       />
                     </div>
