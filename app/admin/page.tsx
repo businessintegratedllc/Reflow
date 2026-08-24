@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Zap, Users, DollarSign, Shield, CheckCircle, ExternalLink, 
-  Search, Settings, CreditCard, Lock, Unlock, ArrowDownCircle, Trash2, KeyRound, AlertCircle, Edit, Check, Clock, X, BarChart3
+  Search, Settings, CreditCard, Lock, Unlock, ArrowDownCircle, Trash2, KeyRound, AlertCircle, Edit, Check, Clock, X, BarChart3, RefreshCw
 } from 'lucide-react';
 import { PAYPAL_CONFIG } from '@/lib/mockData';
 import { Subscriber, SocialStat } from '@/types';
+import { loadAllSubscribersFromDB } from '@/lib/db';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
@@ -33,12 +35,16 @@ export default function AdminLoginPage() {
       if (auth === 'true') {
         setIsAuthenticated(true);
       }
-      loadSubscribers();
+      loadSubscribersData();
     }
   }, []);
 
-  const loadSubscribers = () => {
-    if (typeof window !== 'undefined') {
+  const loadSubscribersData = async () => {
+    // Load from DB / localStorage hybrid
+    const subs = await loadAllSubscribersFromDB();
+    if (subs && subs.length > 0) {
+      setSubscribers(subs);
+    } else if (typeof window !== 'undefined') {
       const savedSubs = localStorage.getItem('reflow_subscribers');
       if (savedSubs) {
         try { setSubscribers(JSON.parse(savedSubs)); } catch (e) {}
@@ -69,7 +75,7 @@ export default function AdminLoginPage() {
   };
 
   // Downgrade creator to Free
-  const handleDowngrade = (id: string, name: string) => {
+  const handleDowngrade = async (id: string, name: string) => {
     if (confirm(`¿Estás seguro de bajar de nivel a ${name} al plan Gratuito (Freemium)?`)) {
       const updated = subscribers.map(s => {
         if (s.id === id) {
@@ -79,13 +85,19 @@ export default function AdminLoginPage() {
       });
       setSubscribers(updated);
       localStorage.setItem('reflow_subscribers', JSON.stringify(updated));
+
+      if (isSupabaseConfigured) {
+        await supabase.from('profiles').update({ plan: 'Free', subscription_status: 'free' }).eq('id', id);
+        await supabase.from('subscriptions').update({ plan: 'Free', amount: 0 }).eq('creator_id', id);
+      }
+
       setSuccessMsg(`¡El creador ${name} ha sido bajado al plan Gratuito!`);
       setTimeout(() => setSuccessMsg(''), 4000);
     }
   };
 
   // Block or Unblock account status
-  const handleToggleBlock = (id: string, currentStatus: string, name: string) => {
+  const handleToggleBlock = async (id: string, currentStatus: string, name: string) => {
     const newStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
     const actionText = newStatus === 'blocked' ? 'bloquear' : 'desbloquear';
     
@@ -98,6 +110,11 @@ export default function AdminLoginPage() {
       });
       setSubscribers(updated);
       localStorage.setItem('reflow_subscribers', JSON.stringify(updated));
+
+      if (isSupabaseConfigured) {
+        await supabase.from('subscriptions').update({ status: newStatus }).eq('creator_id', id);
+      }
+
       setSuccessMsg(`¡Cuenta de ${name} ${actionText}da correctamente!`);
       setTimeout(() => setSuccessMsg(''), 4000);
     }
@@ -106,7 +123,6 @@ export default function AdminLoginPage() {
   // Open Edit & Verify Stats Modal
   const openEditStatsModal = (sub: Subscriber) => {
     setEditingCreator(sub);
-    // If subscriber has stats, load them, otherwise default empty set
     setEditStats(sub.stats || [
       { platform: 'instagram', handle: '@instagram', followers: 10000, engagementRate: 4.5, avgReach: 5000, connected: false },
       { platform: 'tiktok', handle: '@tiktok', followers: 20000, engagementRate: 6.0, avgReach: 10000, connected: false },
@@ -115,7 +131,7 @@ export default function AdminLoginPage() {
   };
 
   // Save Approved Stats
-  const handleSaveApprovedStats = (e: React.FormEvent) => {
+  const handleSaveApprovedStats = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCreator) return;
 
@@ -131,9 +147,26 @@ export default function AdminLoginPage() {
 
     setSubscribers(updatedSubs);
     localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
-
-    // Also sync to reflow_stats if it's the current user session
     localStorage.setItem('reflow_stats', JSON.stringify(verifiedStats));
+
+    if (isSupabaseConfigured) {
+      try {
+        for (const st of verifiedStats) {
+          await supabase.from('social_stats').upsert({
+            user_id: editingCreator.id,
+            platform: st.platform,
+            handle: st.handle,
+            followers: st.followers,
+            engagement_rate: st.engagementRate,
+            avg_reach: st.avgReach,
+            connected: true,
+            last_synced: new Date().toISOString()
+          }, { onConflict: 'user_id,platform' });
+        }
+      } catch (err) {
+        console.error('Error syncing verified stats to Supabase:', err);
+      }
+    }
 
     setEditingCreator(null);
     setSuccessMsg(`¡Métricas verificadas y aprobadas para ${editingCreator.creatorName}! Ya son visibles en su perfil público.`);
@@ -243,6 +276,12 @@ export default function AdminLoginPage() {
 
         <div className="pt-6 border-t border-slate-800 space-y-3">
           <button
+            onClick={loadSubscribersData}
+            className="w-full py-3 px-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-indigo-500/20 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" /> Sincronizar Creadores
+          </button>
+          <button
             onClick={handleLogout}
             className="w-full py-3 px-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors"
           >
@@ -328,24 +367,32 @@ export default function AdminLoginPage() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <h2 className="text-xl font-bold text-white">Listado y Verificación de Creadores</h2>
               
-              <div className="relative w-full sm:w-72">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Search className="w-4 h-4" />
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <button
+                  onClick={loadSubscribersData}
+                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Actualizar Lista
+                </button>
+                <div className="relative w-full sm:w-72">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Search className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar creador..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar creador..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
-                />
               </div>
             </div>
 
             <div className="overflow-x-auto">
               {filteredSubscribers.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 text-sm">
-                  No hay creadores registrados todavía. Cuando un creador se registre, aparecerá listado aquí.
+                  No hay creadores registrados todavía. Cuando un creador configure su perfil o declare sus métricas, aparecerá listado aquí.
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse">

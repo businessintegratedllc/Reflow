@@ -8,54 +8,40 @@ import {
 } from 'lucide-react';
 import { PAYPAL_CONFIG } from '@/lib/mockData';
 import { CreatorProfile, SocialStat, PricingPackage } from '@/types';
+import { saveCreatorData, loadCreatorData } from '@/lib/db';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'packages' | 'mediakit' | 'subscription'>('profile');
   
   // Clean zero-mock initial state for brand new creators
-  const [creator, setCreator] = useState<CreatorProfile>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('reflow_creator');
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
-    }
-    return {
-      id: 'user-' + Date.now(),
-      username: 'tuusuario',
-      fullName: 'Tu Nombre',
-      bio: 'Cuéntale a las marcas sobre tu nicho, tu comunidad y tu experiencia en colaboraciones.',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      niche: 'Tecnología & Lifestyle',
-      whatsappNumber: '+50600000000',
-      plan: 'Free',
-      subscriptionStatus: 'free'
-    };
+  const [creator, setCreator] = useState<CreatorProfile>({
+    id: 'user-' + Date.now(),
+    username: 'tuusuario',
+    fullName: 'Tu Nombre',
+    bio: 'Cuéntale a las marcas sobre tu nicho, tu comunidad y tu experiencia en colaboraciones.',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    niche: 'Tecnología & Lifestyle',
+    whatsappNumber: '+50600000000',
+    plan: 'Free',
+    subscriptionStatus: 'free'
   });
 
-  const [stats, setStats] = useState<SocialStat[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('reflow_stats');
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
-    }
-    return [
-      { id: '1', platform: 'instagram', handle: '@tu_instagram', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' },
-      { id: '2', platform: 'tiktok', handle: '@tu_tiktok', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' },
-      { id: '3', platform: 'youtube', handle: '@tu_youtube', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' }
-    ];
-  });
+  const [stats, setStats] = useState<SocialStat[]>([
+    { id: '1', platform: 'instagram', handle: '@tu_instagram', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' },
+    { id: '2', platform: 'tiktok', handle: '@tu_tiktok', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' },
+    { id: '3', platform: 'youtube', handle: '@tu_youtube', followers: 0, engagementRate: 0.0, avgReach: 0, connected: false, lastSynced: 'Sin enviar', verificationStatus: 'pending' }
+  ]);
 
-  const [packages, setPackages] = useState<PricingPackage[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('reflow_packages');
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
-    }
-    return [];
-  });
+  const [packages, setPackages] = useState<PricingPackage[]>([]);
+
+  // Load from DB/localStorage on mount
+  useEffect(() => {
+    loadCreatorData().then((res) => {
+      if (res.creator) setCreator(res.creator);
+      if (res.stats && res.stats.length > 0) setStats(res.stats as any);
+      if (res.packages && res.packages.length > 0) setPackages(res.packages);
+    });
+  }, []);
 
   // Modal state for submitting metrics to Admin
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -65,37 +51,12 @@ export default function DashboardPage() {
   const [formEngagement, setFormEngagement] = useState(4.5);
   const [formReach, setFormReach] = useState(5000);
 
-  // Save changes and sync subscribers list for Admin Panel instantly
+  // Save changes and sync to Supabase & localStorage instantly on state update
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('reflow_creator', JSON.stringify(creator));
-
-      const existingSubs = JSON.parse(localStorage.getItem('reflow_subscribers') || '[]');
-      const creatorSub = {
-        id: creator.id || 'sub-user-1',
-        creatorName: `${creator.fullName} (@${creator.username})`,
-        email: creator.username + '@reflow.me',
-        plan: creator.plan || 'Free',
-        amount: creator.plan === 'Pro (PayPal)' ? 15.00 : 0.00,
-        currency: 'USD',
-        paypalOrderId: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + Math.floor(Math.random() * 900000 + 100000) : 'FREE-TIER',
-        status: 'active',
-        date: new Date().toISOString().split('T')[0],
-        stats: stats
-      };
-
-      const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.id !== creator.id && s.email !== creatorSub.email)];
-      localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
+    if (creator && stats) {
+      saveCreatorData(creator.id, creator, stats, packages);
     }
-  }, [creator, stats]);
-
-  useEffect(() => {
-    localStorage.setItem('reflow_stats', JSON.stringify(stats));
-  }, [stats]);
-
-  useEffect(() => {
-    localStorage.setItem('reflow_packages', JSON.stringify(packages));
-  }, [packages]);
+  }, [creator, stats, packages]);
 
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -107,8 +68,8 @@ export default function DashboardPage() {
 
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('reflow_creator', JSON.stringify(creator));
-    setSuccessMsg('¡Perfil y foto guardados exitosamente!');
+    saveCreatorData(creator.id, creator, stats, packages);
+    setSuccessMsg('¡Perfil y foto guardados y sincronizados exitosamente!');
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
@@ -125,9 +86,7 @@ export default function DashboardPage() {
         const base64String = reader.result as string;
         setCreator(prev => {
           const updated = { ...prev, avatarUrl: base64String };
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('reflow_creator', JSON.stringify(updated));
-          }
+          saveCreatorData(updated.id, updated, stats, packages);
           return updated;
         });
         setSuccessMsg('¡Fotografía de perfil cargada y guardada correctamente!');
@@ -172,7 +131,7 @@ export default function DashboardPage() {
     });
 
     setStats(updatedStats);
-    localStorage.setItem('reflow_stats', JSON.stringify(updatedStats));
+    saveCreatorData(creator.id, creator, updatedStats, packages);
     setShowSubmitModal(false);
     setSuccessMsg(`¡Métricas de ${submittingPlatform.toUpperCase()} enviadas al Administrador para su aprobación!`);
     setTimeout(() => setSuccessMsg(''), 4500);
@@ -193,7 +152,7 @@ export default function DashboardPage() {
     };
     const updated = [...packages, newPkg];
     setPackages(updated);
-    localStorage.setItem('reflow_packages', JSON.stringify(updated));
+    saveCreatorData(creator.id, creator, stats, updated);
     setNewTitle('');
     setNewDesc('');
     setNewPrice(200);
@@ -204,7 +163,7 @@ export default function DashboardPage() {
   const handleDeletePackage = (id: string) => {
     const updated = packages.filter(p => p.id !== id);
     setPackages(updated);
-    localStorage.setItem('reflow_packages', JSON.stringify(updated));
+    saveCreatorData(creator.id, creator, stats, updated);
   };
 
   const handlePayPalCheckout = () => {
@@ -331,12 +290,12 @@ export default function DashboardPage() {
             <div className="max-w-4xl space-y-8 animate-fadeIn">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-white">Perfil y Envío de Métricas</h1>
-                <p className="text-slate-400 text-sm mt-1">Sube tu foto, configura tu perfil y declara tus analíticas para que el Administrador las verifique y apruebe.</p>
+                <p className="text-slate-400 text-sm mt-1">Sube tu foto desde el celular u ordenador, configura tu perfil y declara tus analíticas para que el Administrador las verifique.</p>
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
                 <form onSubmit={handleProfileSave} className="space-y-6">
-                  {/* Computer Image Upload */}
+                  {/* Computer / Mobile Image Upload */}
                   <div className="flex flex-col sm:flex-row items-center gap-6 p-6 rounded-2xl bg-slate-950 border border-slate-800 text-center sm:text-left">
                     <img 
                       src={creator.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'} 
@@ -344,7 +303,7 @@ export default function DashboardPage() {
                       className="w-24 h-24 rounded-2xl object-cover border-2 border-indigo-500/50 shadow-lg"
                     />
                     <div className="flex-1 w-full space-y-3">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Fotografía de Perfil (Subir desde tu Ordenador o Celular)</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Fotografía de Perfil (Subir desde tu Celular u Ordenador)</label>
                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4">
                         <label className="cursor-pointer px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2">
                           <UploadIcon className="w-4 h-4" /> Seleccionar Archivo
