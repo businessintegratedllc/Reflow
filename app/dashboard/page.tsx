@@ -65,7 +65,7 @@ export default function DashboardPage() {
   const [formEngagement, setFormEngagement] = useState(4.5);
   const [formReach, setFormReach] = useState(5000);
 
-  // Save changes and sync subscribers list for Admin Panel
+  // Save changes and sync subscribers list for Admin Panel instantly
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('reflow_creator', JSON.stringify(creator));
@@ -84,7 +84,7 @@ export default function DashboardPage() {
         stats: stats
       };
 
-      const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.id !== creator.id)];
+      const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.id !== creator.id && s.email !== creatorSub.email)];
       localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
     }
   }, [creator, stats]);
@@ -117,7 +117,7 @@ export default function DashboardPage() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen es muy pesada. Por favor selecciona una menor al 2MB.');
+        alert('La imagen es muy pesada. Por favor selecciona una menor a 2MB.');
         return;
       }
       const reader = new FileReader();
@@ -220,10 +220,10 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
-      {/* Sidebar Navigation */}
-      <aside className="w-full md:w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-6">
+      {/* Sidebar Navigation - Responsive for mobile & desktop */}
+      <aside className="w-full md:w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 md:p-6">
         <div>
-          <div className="flex items-center gap-3 mb-10">
+          <div className="flex items-center gap-3 mb-6 md:mb-10">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
               <Zap className="w-6 h-6 text-white" />
             </div>
@@ -233,10 +233,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="flex md:flex-col overflow-x-auto md:overflow-x-visible gap-2 pb-2 md:pb-0">
             <button
               onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
+              className={`flex-shrink-0 md:w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
                 activeTab === 'profile'
                   ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -247,7 +247,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => setActiveTab('stats')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
+              className={`flex-shrink-0 md:w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
                 activeTab === 'stats'
                   ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -258,7 +258,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => setActiveTab('packages')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
+              className={`flex-shrink-0 md:w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
                 activeTab === 'packages'
                   ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -269,7 +269,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => setActiveTab('mediakit')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
+              className={`flex-shrink-0 md:w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
                 activeTab === 'mediakit'
                   ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -280,7 +280,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => setActiveTab('subscription')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
+              className={`flex-shrink-0 md:w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
                 activeTab === 'subscription'
                   ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -291,7 +291,7 @@ export default function DashboardPage() {
           </nav>
         </div>
 
-        <div className="pt-6 border-t border-slate-800 space-y-4">
+        <div className="hidden md:block pt-6 border-t border-slate-800 space-y-4">
           <Link
             href="/admin"
             className="w-full py-2.5 px-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-semibold text-xs flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-colors"
@@ -317,7 +317,7 @@ export default function DashboardPage() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto flex flex-col justify-between">
+      <main className="flex-1 p-4 sm:p-6 md:p-10 overflow-y-auto flex flex-col justify-between">
         <div>
           {successMsg && (
             <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-3 shadow-lg">
@@ -334,18 +334,18 @@ export default function DashboardPage() {
                 <p className="text-slate-400 text-sm mt-1">Sube tu foto, configura tu perfil y declara tus analíticas para que el Administrador las verifique y apruebe.</p>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
                 <form onSubmit={handleProfileSave} className="space-y-6">
                   {/* Computer Image Upload */}
-                  <div className="flex flex-col sm:flex-row items-center gap-6 p-6 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="flex flex-col sm:flex-row items-center gap-6 p-6 rounded-2xl bg-slate-950 border border-slate-800 text-center sm:text-left">
                     <img 
                       src={creator.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'} 
                       alt="Avatar Preview" 
                       className="w-24 h-24 rounded-2xl object-cover border-2 border-indigo-500/50 shadow-lg"
                     />
                     <div className="flex-1 w-full space-y-3">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Fotografía de Perfil (Subir desde tu Ordenador)</label>
-                      <div className="flex flex-wrap items-center gap-4">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Fotografía de Perfil (Subir desde tu Ordenador o Celular)</label>
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4">
                         <label className="cursor-pointer px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2">
                           <UploadIcon className="w-4 h-4" /> Seleccionar Archivo
                           <input 
@@ -424,7 +424,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Submit Metrics for Admin Approval Section */}
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl">
                 <h2 className="text-xl font-bold text-white mb-2">Declaración de Redes Sociales</h2>
                 <p className="text-slate-400 text-sm mb-6">Ingresa tus métricas para que el Administrador las revise y apruebe en tu perfil público.</p>
 
