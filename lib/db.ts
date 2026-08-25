@@ -1,25 +1,35 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { CreatorProfile, SocialStat, PricingPackage, Subscriber } from '@/types';
 
-export async function saveCreatorData(userId: string, creator: CreatorProfile, stats: SocialStat[], packages: PricingPackage[]) {
-  if (!creator || !creator.username || creator.username === 'tuusuario') return;
+// Helper to generate a valid UUID v4 in browser & Node
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
-  const emailKey = (creator.email || creator.username + '@reflow.me').trim().toLowerCase();
-  const cleanId = userId || creator.id || 'user-' + emailKey.replace(/[^a-z0-9]/g, '');
+export async function saveCreatorData(userId: string, creator: CreatorProfile, stats: SocialStat[], packages: PricingPackage[]) {
+  // Ensure userId is a valid UUID, otherwise generate one
+  const cleanId = (userId && userId.length === 36 && userId.includes('-')) ? userId : generateUUID();
+  const cleanUsername = (creator.username || 'tuusuario').toLowerCase().replace(/[^a-z0-9_]/g, '');
 
   // 1. Save to localStorage
   if (typeof window !== 'undefined') {
-    const creatorToSave = { ...creator, id: cleanId, email: emailKey };
+    const creatorToSave = { ...creator, id: cleanId, username: cleanUsername };
     localStorage.setItem('reflow_creator', JSON.stringify(creatorToSave));
     localStorage.setItem('reflow_stats', JSON.stringify(stats));
     localStorage.setItem('reflow_packages', JSON.stringify(packages));
-    localStorage.setItem('reflow_creator_email', emailKey);
+    localStorage.setItem('reflow_creator_username', cleanUsername);
 
     const existingSubs = JSON.parse(localStorage.getItem('reflow_subscribers') || '[]');
     const creatorSub = {
       id: cleanId,
-      creatorName: `${creator.fullName} (@${creator.username})`,
-      email: emailKey,
+      creatorName: `${creator.fullName} (@${cleanUsername})`,
+      email: `${cleanUsername}@reflow.me`,
       plan: creator.plan || 'Free',
       amount: creator.plan === 'Pro (PayPal)' ? 15.00 : 0.00,
       currency: 'USD',
@@ -28,22 +38,26 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
       date: new Date().toISOString().split('T')[0],
       stats: stats
     };
-    const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.email !== emailKey && s.id !== cleanId)];
+    const updatedSubs = [creatorSub, ...existingSubs.filter((s: any) => s.id !== cleanId)];
     localStorage.setItem('reflow_subscribers', JSON.stringify(updatedSubs));
   }
 
-  // 2. Save to Supabase (Cloud Sync by Email)
+  // 2. Save to Supabase (Cloud Sync by username)
   if (isSupabaseConfigured) {
     try {
-      // Check if profile exists by email
-      const { data: existingProfile } = await supabase.from('profiles').select('id').eq('email', emailKey).maybeSingle();
-      const dbId = existingProfile ? existingProfile.id : cleanId;
+      // Check if profile exists by username
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', cleanUsername)
+        .maybeSingle();
 
-      await supabase.from('profiles').upsert({
-        id: dbId,
-        username: creator.username.toLowerCase().replace(/[^a-z0-9_]/g, ''),
+      const profileId = existingProfile ? existingProfile.id : cleanId;
+
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: profileId,
+        username: cleanUsername,
         full_name: creator.fullName,
-        email: emailKey,
         bio: creator.bio,
         avatar_url: creator.avatarUrl,
         niche: creator.niche,
@@ -51,11 +65,15 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
         plan: creator.plan || 'Free',
         subscription_status: creator.subscriptionStatus || 'free',
         updated_at: new Date().toISOString()
-      }, { onConflict: 'email' });
+      }, { onConflict: 'username' });
+
+      if (profileError) {
+        console.error('Supabase Profile Upsert Error:', profileError);
+      }
 
       for (const st of stats) {
         await supabase.from('social_stats').upsert({
-          user_id: dbId,
+          user_id: profileId,
           platform: st.platform,
           handle: st.handle,
           followers: st.followers,
@@ -67,59 +85,47 @@ export async function saveCreatorData(userId: string, creator: CreatorProfile, s
       }
 
       await supabase.from('subscriptions').upsert({
-        creator_id: dbId,
-        creator_name: `${creator.fullName} (@${creator.username})`,
-        email: emailKey,
+        creator_id: profileId,
+        creator_name: `${creator.fullName} (@${cleanUsername})`,
+        email: `${cleanUsername}@reflow.me`,
         plan: creator.plan || 'Free',
         amount: creator.plan === 'Pro (PayPal)' ? 15.00 : 0.00,
         currency: 'USD',
-        paypal_order_id: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + dbId : 'FREE-TIER-' + dbId,
+        paypal_order_id: creator.plan === 'Pro (PayPal)' ? 'PAYPAL-PRO-' + profileId : 'FREE-TIER-' + profileId,
         status: 'active'
       }, { onConflict: 'paypal_order_id' });
 
     } catch (err) {
-      console.error('Supabase Sync Error:', err);
+      console.error('Supabase Cloud Sync Exception:', err);
     }
   }
 }
 
-export async function loadCreatorData(emailOrUsername?: string) {
-  let lookupKey = emailOrUsername;
+export async function loadCreatorData(usernameKey?: string) {
+  let lookupUsername = usernameKey;
 
-  if (typeof window !== 'undefined' && !emailOrUsername) {
-    lookupKey = localStorage.getItem('reflow_creator_email') || undefined;
-    if (!lookupKey) {
+  if (typeof window !== 'undefined' && !usernameKey) {
+    lookupUsername = localStorage.getItem('reflow_creator_username') || undefined;
+    if (!lookupUsername) {
       const localCreator = localStorage.getItem('reflow_creator');
       if (localCreator) {
         try {
           const parsed = JSON.parse(localCreator);
-          if (parsed.email) lookupKey = parsed.email;
-          else if (parsed.username) lookupKey = parsed.username;
+          if (parsed.username) lookupUsername = parsed.username;
         } catch (e) {}
       }
     }
   }
 
-  // Also check Supabase Auth session if available
-  if (isSupabaseConfigured && !lookupKey) {
+  // Try Supabase first if configured
+  if (isSupabaseConfigured && lookupUsername && lookupUsername !== 'tuusuario') {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
-        lookupKey = session.user.email;
-      }
-    } catch (e) {}
-  }
-
-  if (isSupabaseConfigured && lookupKey) {
-    try {
-      const isEmail = lookupKey.includes('@');
-      let query = supabase.from('profiles').select('*');
-      if (isEmail) {
-        query = query.eq('email', lookupKey.trim().toLowerCase());
-      } else {
-        query = query.eq('username', lookupKey.toLowerCase().replace(/[^a-z0-9_]/g, ''));
-      }
-      const { data: profileData, error } = await query.maybeSingle();
+      const cleanLookup = lookupUsername.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', cleanLookup)
+        .maybeSingle();
 
       if (!error && profileData) {
         const { data: statsData } = await supabase.from('social_stats').select('*').eq('user_id', profileData.id);
@@ -129,7 +135,6 @@ export async function loadCreatorData(emailOrUsername?: string) {
           id: profileData.id,
           username: profileData.username,
           fullName: profileData.full_name,
-          email: profileData.email,
           bio: profileData.bio,
           avatarUrl: profileData.avatar_url,
           niche: profileData.niche,
@@ -168,7 +173,7 @@ export async function loadCreatorData(emailOrUsername?: string) {
           localStorage.setItem('reflow_creator', JSON.stringify(creator));
           localStorage.setItem('reflow_stats', JSON.stringify(stats));
           localStorage.setItem('reflow_packages', JSON.stringify(packages));
-          if (creator.email) localStorage.setItem('reflow_creator_email', creator.email);
+          localStorage.setItem('reflow_creator_username', creator.username);
         }
 
         return { creator, stats, packages };
